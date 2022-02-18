@@ -10,11 +10,11 @@ pi = math.pi
 # Input: IIrCam task-space coordinates vector [x; y; z] in mm
 # Output: cylindrical joint-space coordinates [theta, gantry, depth]
 
-# Note: HOME IIrCam is [110.3, 227.5, 872.5] mm with respect to the 
+# Note: HOME IIrCam is [111.35, 227.5, 872.5] mm with respect to the 
 # inertial reference frame
 def cam_ik(IIrCam):
 	phi = -math.atan2(IIrCam[0], IIrCam[1])
-	theta_cam = math.asin((110.35)/math.sqrt(IIrCam[0]**2 + IIrCam[1]**2))
+	theta_cam = math.asin((111.35)/math.sqrt(IIrCam[0]**2 + IIrCam[1]**2))
 	theta = phi + theta_cam
 	gantry = math.sqrt(IIrCam[0]**2 + IIrCam[1]**2) * math.cos(theta_cam) - 227.5
 	depth = 1425 - 577.5 + 25 - IIrCam[2]

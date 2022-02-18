@@ -1,3 +1,4 @@
+# Test script for initializing and interfacing with a ROS publisher
 import subprocess
 
 # Import ROS libraries

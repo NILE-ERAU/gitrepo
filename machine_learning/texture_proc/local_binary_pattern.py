@@ -30,7 +30,7 @@ for imagePath in paths.list_images(args["training"]):
 	# label and data lists
 	labels.append(imagePath.split(os.path.sep)[-2])
 	data.append(hist)
-# train a Linear SVM on the data
+# train a Linear SVM (State Vector Model) on the data
 # create the classifier
 print("[STATUS] Creating the classifier..")
 model = LinearSVC(C=100.0, random_state=42)
