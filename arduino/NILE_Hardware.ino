@@ -52,7 +52,7 @@
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Global Variables
-int t_count = 0; //count variable for trolley position
+int trolley_count = 0; //count variable for trolley position
 long t = 0; //local time variable, hopefully won't overflow
 long prev_t = 0; //previous time, used for derivative controller
 
@@ -109,7 +109,7 @@ void setup() {
 
 ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
  {    
-  t_count += trolley_enc.count(); //handles the trolley counting encoder
+  trolley_count += trolley_enc.count(); //handles the trolley counting encoder
  }
  
 ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
