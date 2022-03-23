@@ -138,8 +138,9 @@ double readRotation()
 }
 
 double readVerticalPos(){
-  v = v_count / 400 * 0.009525; //m
-  return v;
+  double countsPerRot = 400;
+  double dispPerRot = 0.009525;
+  return (v_count/countsPerRot)*dispPerRot;
 }
 
 double readTrolleyPos() {
