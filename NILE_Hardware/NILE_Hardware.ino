@@ -142,6 +142,12 @@ double readVerticalPos(){
   return v;
 }
 
+double readTrolleyPos() {
+  double countsPerRot = 1024;
+  double wheel_r = 0.02905;
+  return (d_count/countsPerRot)*(2*wheel_r*PI);
+}
+
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
 
