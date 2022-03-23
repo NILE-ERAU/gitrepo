@@ -176,6 +176,9 @@ void loop() {
   //ROS Fetching
 
   //Update Sensors
+  theta = readRotation();
+  d = readTrolleyPos();
+  v = readVerticalPos();
 
   //System Modes
 
