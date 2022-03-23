@@ -154,12 +154,12 @@ int readSoilMoist()
   return EE_ADC.read(0);
 }
 
-int readSoilTemp()
+double readSoilTemp()
 {
   return EE_ADC.read(1);
 }
 
-int readHVECTemp()
+double readHVECTemp()
 {
   return EE_ADC.read(2);
 }
