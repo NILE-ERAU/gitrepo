@@ -52,9 +52,26 @@
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Global Variables
-int trolley_count = 0; //count variable for trolley position
-long t = 0; //local time variable, hopefully won't overflow
-long prev_t = 0; //previous time, used for derivative controller
+unsigned long t = 0; //local time variable, hopefully won't overflow
+unsigned long prev_t = 0; //previous time, used for derivative controller
+
+//Joint Variables
+double theta = 0;
+double d = 0;
+double v = 0;
+
+//Raw Joint Variables
+int d_count = 0; //count variable for trolley position
+int v_count = 0; //vertical stepper count
+int theta_count = 0; //rotation encoder count
+
+//System Modes
+bool roboControl_ = false;
+bool roboHome_ = false;
+bool HVEC_ = false;
+bool waterPlants_ = false;
+
+
 
 //Digital Sensors
 ADCI2C EE_ADC(0x28); //End-Effector ADC
@@ -88,7 +105,7 @@ void setup() {
   pinMode(P_VERT_STEP, OUTPUT); //Vertical stepper step pulse (PWM-enabled)
   pinMode(P_VERT_DIR, OUTPUT); //Vertical stepper step direction
   pinMode(P_WHEEL_PWM_F, OUTPUT); //Wheel motor "Forward" PWM signal
-  pinMode(P_WHEEL_PWM_B, OUTPUT); //Wheel motor "Backward" PWM signal
+  pinMode(P_WHEEL_PWM_B, OUTPUT); //Wheel motor "Backward" PWM signal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
   
   //Analog Sensors
   pinMode(P_TROLLEY_SW, INPUT); //Trolley callibration limit switch
@@ -103,13 +120,21 @@ void setup() {
   rotary_enc.init();
   EE_ADC.init();
 }
+//-----------------------------------------------------------------------------------------------------------------------
+// Robot Functions
+
+int roboControl(double theta_d, double d_d, double v_d) {
+
+  
+}
+
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
 
 ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
  {    
-  trolley_count += trolley_enc.count(); //handles the trolley counting encoder
+  d_count += trolley_enc.count(); //handles the trolley counting encoder
  }
  
 ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
@@ -127,13 +152,14 @@ ISR (PCINT2_vect) // handle pin change interrupt for D0 to D7 here
  
 
 void loop() {
-  // put your main code here, to run repeatedly:
- 
-  analogWrite(P_TROLLEY_PWM_F, 255);
-  delay(1000);
-  analogWrite(P_TROLLEY_PWM_F,0);
+  t = millis();
+
+  //ROS Fetching
+
+  //Update Sensors
+
+  //System Modes
 
 
-  while(true);
-  delay(1);
+  prev_t = t;
 }
