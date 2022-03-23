@@ -137,6 +137,10 @@ double readRotation()
   return theta;
 }
 
+double readVerticalPos(){
+  v = v_count / 400 * 0.009525; //m
+  return v;
+}
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
