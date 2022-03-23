@@ -128,6 +128,15 @@ int roboControl(double theta_d, double d_d, double v_d) {
   
 }
 
+double readRotation()
+{
+  uint16_t raw;
+  uint16_t theta;
+  raw = rotary_enc.getPos();  //receive number of counts
+  theta = ((2*PI)/4095)*raw;  //convert counts to radians
+  return theta;
+}
+
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
