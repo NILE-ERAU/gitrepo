@@ -160,11 +160,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
   //Control Equations
   pwm_theta = Kp_theta*e_theta + Ki_theta*eint_theta + Kd_theta*edot_d; //0-255
   pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d; //0-255
-  pwm_v = Kp_v*e_v + Ki_v*eint_v + Kd_v*edot_d;
-
-  elast_theta = e_theta;
-  elast_d = e_d;
-  elast_v = e_v;
+  pwm_v = Kp_v*e_v + Ki_v*eint_v + Kd_v*edot_v;
   
   if(e_theta < 0.001 && e_d < 0.001 && e_v < 0.001){
     roboControlState = 1;
@@ -176,6 +172,9 @@ int roboControl(double theta_d, double d_d, double v_d) {
     driveRotation(pwm_theta);
     driveTrolley(pwm_d);
     driveStepper(pwm_v);
+    elast_theta = e_theta;
+    elast_d = e_d;
+    elast_v = e_v;
   }
 
   return roboControlState;
