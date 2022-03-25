@@ -167,6 +167,9 @@ int roboControl(double theta_d, double d_d, double v_d) {
     eint_theta = 0;
     eint_d = 0;
     eint_v = 0;
+    elast_theta = 0;
+    elast_d = 0;
+    elast_v = 0;
   } else {
     roboControlState = 0;
     driveRotation(pwm_theta);
