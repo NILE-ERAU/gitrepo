@@ -33,6 +33,7 @@
 #define P_HVEC 25 //DO NOT TURN ON UNLESS U KNOW WHAT U ARE DOING!!
 #define P_WATER_SOLE 27 //Water solenoid
 #define P_FERT_SOLE 26 //Fertilizer solenoid
+#define P_BUZZER 12
 
 //Motors
 #define P_TROLLEY_PWM_F 5 //Trolley motor "Forward" PWM signal
