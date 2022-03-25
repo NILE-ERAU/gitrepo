@@ -175,7 +175,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
     roboControlState = 0;
     driveRotation(pwm_theta);
     driveTrolley(pwm_d);
-    driveStepper(pwm_v);
+    //driveStepper(pwm_v);
     elast_theta = e_theta;
     elast_d = e_d;
     elast_v = e_v;
@@ -183,6 +183,27 @@ int roboControl(double theta_d, double d_d, double v_d) {
 
   return roboControlState;
   
+}
+
+int roboHome(){
+  int roboHome_ = 0;
+  int pwm_trolley = 50;
+  int pwm_stepper = 50;
+
+  if(digitalRead(P_TROLLEY_SW)){
+    driveTrolley(0);
+  } else {
+    driveTrolley(pwm_trolley); //Stop
+    roboHome_ = 0;
+  }
+
+  /*if(digitalRead(P_VERT_SW)){
+    driveStepper(0);
+  } else {
+    driveStepper(pwm_stepper);
+  }*/
+  
+  return roboHome_;
 }
 
 double readRotation()
