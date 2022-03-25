@@ -124,7 +124,61 @@ void setup() {
 // Robot Functions
 
 int roboControl(double theta_d, double d_d, double v_d) {
+  //Vairable Initialization
+  static double elast_theta = 0;
+  static double elast_d = 0;
+  static double elast_v = 0;
+  int roboControlState = 0;
+ 
+  //Theta gains
+  double Kp_theta = 20;
+  double Ki_theta = 0;
+  double Kd_theta = 0;
+  double pwm_theta;
+  double e_theta = theta_d - theta;
+  double edot_theta = (e_theta - elast_theta)/(double)(t - prev_t);
+  static double eint_theta = (eint_theta + elast_theta)*(double)(t - prev_t);
 
+  //D gains
+  double Kp_d = 0;
+  double Ki_d = 0;
+  double Kd_d = 0;
+  double pwm_d;
+  double e_d = d_d - d;
+  double edot_d = (e_d - elast_d)/(double)(t - prev_t);
+  static double eint_d = (eint_d + elast_d)*(double)(t - prev_t);
+  
+  //V gains
+  double Kp_v = 0;
+  double Ki_v = 0;
+  double Kd_v = 0;
+  double pwm_v;
+  double e_v = v_d - v;
+  double edot_v = (e_v - elast_v)/(double)(t - prev_t);
+  static double eint_v = (eint_v + elast_v)*(double)(t - prev_t);
+
+  //Control Equations
+  pwm_theta = Kp_theta*e_theta + Ki_theta*eint_theta + Kd_theta*edot_d; //0-255
+  pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d; //0-255
+  pwm_v = Kp_v*e_v + Ki_v*eint_v + Kd_v*edot_d;
+
+  elast_theta = e_theta;
+  elast_d = e_d;
+  elast_v = e_v;
+  
+  if(e_theta < 0.001 && e_d < 0.001 && e_v < 0.001){
+    roboControlState = 1;
+    eint_theta = 0;
+    eint_d = 0;
+    eint_v = 0;
+  } else {
+    roboControlState = 0;
+    driveRotation(pwm_theta);
+    driveTrolley(pwm_d);
+    driveStepper(pwm_v);
+  }
+
+  return roboControlState;
   
 }
 
