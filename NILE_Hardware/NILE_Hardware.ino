@@ -218,6 +218,32 @@ double readHVECTemp()
   return EE_ADC.read(2);
 }
 
+int driveRotation(double speed)
+{
+  if (speed>0)
+  {
+    analogWrite(P_WHEEL_PWM_F,(int)abs(speed));
+  }
+  else
+  {
+    analogWrite(P_WHEEL_PWM_B,(int)abs(speed));
+  }
+  return 1;
+}
+
+int driveTrolley(double speed)
+{
+  if (speed>0)
+  {
+    analogWrite(P_TROLLEY_PWM_F,(int)abs(speed));
+  }
+  else
+  {
+    analogWrite(P_TROLLEY_PWM_B,(int)abs(speed));
+  }
+  return 1;
+}
+
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
 
