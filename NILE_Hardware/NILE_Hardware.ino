@@ -55,6 +55,7 @@
 //Global Variables
 unsigned long t = 0; //local time variable, hopefully won't overflow
 unsigned long prev_t = 0; //previous time, used for derivative controller
+unsigned int water_count = 0; //interrupt changed variable as flowmeter ticks
 
 //Joint Variables
 double theta = 0;
@@ -123,6 +124,10 @@ void setup() {
 }
 //-----------------------------------------------------------------------------------------------------------------------
 // Robot Functions
+int waterPlant(int howMuchWater) {
+      digitalWrite(P_WATER_SOLE,HIGH);//opens solenoids
+      water_count = howMuchWater + water_count;//this only works if the fucntion gets called agian while the function still has water remaining to dispense
+ }
 
 int roboControl(double theta_d, double d_d, double v_d) {
   //Vairable Initialization
@@ -274,6 +279,14 @@ int driveTrolley(double speed)
 ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
  {    
   d_count += trolley_enc.count(); //handles the trolley counting encoder
+   if(PCINT0_vect and P_TROLLEY_FLOW){
+      if( water_count < 1){
+        digitalWrite(P_WATER_SOLE,LOW);
+      }else{
+        water_count--;
+      }
+  
+  }
  }
  
 ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
