@@ -131,83 +131,108 @@ int waterPlant(int howMuchWater) {
 
 int roboControl(double theta_d, double d_d, double v_d) {
   //Vairable Initialization
-  static double elast_theta = 0;
-  static double elast_d = 0;
-  static double elast_v = 0;
-  int roboControlState = 0;
+  static double elast_theta = 0, elast_d = 0, elast_v = 0;
+  static double eint_theta = 0, eint_d = 0, eint_v = 0;
+  static int roboControlState = 0;
+  double dt = (double)(t - prev_t)*0.001; //Seconds
  
   //Theta gains
-  double Kp_theta = 20;
-  double Ki_theta = 0;
-  double Kd_theta = 0;
+  double Kp_theta = 20, Ki_theta = 0, Kd_theta = 0;
   double pwm_theta;
   double e_theta = theta_d - theta;
-  double edot_theta = (e_theta - elast_theta)/(double)(t - prev_t);
-  static double eint_theta = (eint_theta + elast_theta)*(double)(t - prev_t);
+  double edot_theta = (e_theta - elast_theta)/(double)(dt);
+  eint_theta = eint_theta + elast_theta*(double)(dt);
 
   //D gains
-  double Kp_d = 0;
-  double Ki_d = 0;
-  double Kd_d = 0;
-  double pwm_d;
+  double Kp_d = 250, Ki_d = 10, Kd_d = 5;
+  static double pwm_d = 0;
   double e_d = d_d - d;
-  double edot_d = (e_d - elast_d)/(double)(t - prev_t);
-  static double eint_d = (eint_d + elast_d)*(double)(t - prev_t);
+  double edot_d = (e_d - elast_d)/(double)(dt);
+  eint_d = eint_d + elast_d*(double)(dt);
   
   //V gains
-  double Kp_v = 0;
-  double Ki_v = 0;
-  double Kd_v = 0;
+  double Kp_v = 0, Ki_v = 0, Kd_v = 0;
   double pwm_v;
   double e_v = v_d - v;
   double edot_v = (e_v - elast_v)/(double)(t - prev_t);
-  static double eint_v = (eint_v + elast_v)*(double)(t - prev_t);
+  eint_v = (eint_v + elast_v)*(double)(t - prev_t);
 
-  //Control Equations
+  //Control
   pwm_theta = Kp_theta*e_theta + Ki_theta*eint_theta + Kd_theta*edot_d; //0-255
-  pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d; //0-255
+  pwm_theta = (pwm_theta > 255.0) ? 255 : pwm_d;
   pwm_v = Kp_v*e_v + Ki_v*eint_v + Kd_v*edot_v;
+  pwm_v = (pwm_v > 255.0) ? 255 : pwm_v;
   
-  if(e_theta < 0.001 && e_d < 0.001 && e_v < 0.001){
-    roboControlState = 1;
-    eint_theta = 0;
+  if(e_d < 0.001){
+    //Set PWM_D Value
+    pwm_d = 0;
+    //Reset values
     eint_d = 0;
-    eint_v = 0;
-    elast_theta = 0;
     elast_d = 0;
-    elast_v = 0;
+    roboControlState = 1;
   } else {
-    roboControlState = 0;
-    driveRotation(pwm_theta);
-    driveTrolley(pwm_d);
-    //driveStepper(pwm_v);
-    elast_theta = e_theta;
+    //Set PWM_D value
+    pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d;
+    pwm_d = (pwm_d > 255.0) ? 255 : pwm_d; //0-255
+    //Set PWM_D values
     elast_d = e_d;
-    elast_v = e_v;
+    roboControlState = 0;
   }
-
-  return roboControlState;
+  //Reference Values
+  Serial.print("e_d: ");
+  Serial.print(e_d, 4);
+  Serial.print(", Step Size: ");
+  Serial.println(dt,4);
+  Serial.print("Trolly PWM: ");
+  Serial.print(pwm_d);
+  Serial.print(", Trolley Joint: ");
+  Serial.println(d);
+  /*Serial.print("T: ");
+  Serial.print(t);
+  Serial.print("Prev_t: ");
+  Serial.println(prev_t);*/
+  //Commands that move the robot
+  driveTrolley(pwm_d);
   
+  return roboControlState;
 }
 
 int roboHome(){
-  int roboHome_ = 0;
-  int pwm_trolley = 50;
-  int pwm_stepper = 50;
-
-  if(digitalRead(P_TROLLEY_SW)){
+  static bool homeTrolley = false;
+  static bool homeRotation = false;
+  static int trolleyMode = 1;
+  static int roboHome_ = 0;
+  double pwm_trolley = -150;
+  double pwm_theta = 50;
+ 
+  if(trolleyMode == 1){
+    driveTrolley(-250);
+    if(digitalRead(P_TROLLEY_SW) == 1){
+      Serial.println("Case 1");
+      driveTrolley(0);
+      trolleyMode = 2;
+    }
+  } else if (trolleyMode == 2){
+    Serial.println("Case 2");
+    driveTrolley(150);
+    delay(2000);
     driveTrolley(0);
-  } else {
-    driveTrolley(pwm_trolley); //Stop
-    roboHome_ = 0;
+    trolleyMode = 3;
+  }else{
+    driveTrolley(-100);
+    if(digitalRead(P_TROLLEY_SW)){
+      Serial.println("Case 3");
+      d_count = 0;
+      driveTrolley(0);
+      delay(1000);
+      homeTrolley = true;
+    }
   }
 
-  /*if(digitalRead(P_VERT_SW)){
-    driveStepper(0);
-  } else {
-    driveStepper(pwm_stepper);
-  }*/
-  
+  if(homeTrolley){
+    roboHome_ = 1;
+    homeTrolley = false;
+  }
   return roboHome_;
 }
 
@@ -265,9 +290,10 @@ int driveTrolley(double speed)
   if (speed>0)
   {
     analogWrite(P_TROLLEY_PWM_F,(int)abs(speed));
-  }
-  else
-  {
+  } else if (speed == 0){
+    analogWrite(P_TROLLEY_PWM_F, 0);
+    analogWrite(P_TROLLEY_PWM_B, 0);
+  } else {
     analogWrite(P_TROLLEY_PWM_B,(int)abs(speed));
   }
   return 1;
