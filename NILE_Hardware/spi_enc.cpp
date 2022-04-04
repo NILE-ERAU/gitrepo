@@ -4,6 +4,8 @@
 #include "spi_enc.h"
 #include <SPI.h>
 
+//SPI timout limit
+#define timoutLimit 100
 
 //ENCODER SPI Commands
 #define AMT_NOP       0x00
@@ -15,6 +17,8 @@
 #define SPI_MOSI 51
 #define SPI_SCK 52
 #define SPI_CSB 48
+
+SPISettings Settings(500000, MSBFIRST, SPI_MODE0);
 
 void SPI_enc::init()
 {
@@ -30,53 +34,97 @@ void SPI_enc::init()
   SPI.begin(); 
 }
 
-uint8_t SPI_enc::spiWriteRead(uint8_t sendByte, uint8_t releaseLine)
+uint8_t SPI_enc::SPIWrite(uint8_t sendByte)
 {
   //holder for the received over SPI
   uint8_t data;
 
-  //set cs low, cs may already be low but there's no issue calling it again except for extra time
+  //Initialize SPI with a clock rate of 500kHz, MSB First, and SPI Mode 0
+  SPI.beginTransaction(Settings);
+
+  //the AMT20 requires the release of the CS line after each byte
   digitalWrite(SPI_CSB, LOW);
-
-  //There is a minimum time requirement after CS goes low before data can be clocked out of the encoder.
-  //We will implement that time delay here, however the arduino is not the fastest device so the delay
-  //is likely inherantly there already
-  delayMicroseconds(3);
-
-  //send the command  
   data = SPI.transfer(sendByte);
-  delayMicroseconds(3); //There is also a minimum time after clocking that CS should remain asserted before we release it
-  digitalWrite(SPI_CSB, releaseLine); //if releaseLine is high set it high else it stays low
-  delayMicroseconds(3);
+  /*Serial.print("Hi");
+  Serial.print(data);*/
+  digitalWrite(SPI_CSB, HIGH);
+  
+  //Serial.println("Bye");
+  SPI.endTransaction();
+
+  //we will delay here to prevent the AMT20 from having to prioritize SPI over obtaining our position
+  delay(1);
+  
   return data;
 }
 
 uint16_t SPI_enc::getPos() 
 {
-  uint16_t pos = 0;
-  uint8_t data;
-  uint8_t data2;
-  uint8_t data1 = spiWriteRead(AMT_READ,LOW);
+  uint8_t data;               //this will hold returned data from the AMT20
+  uint8_t timeoutCounter;     //timeout incrementer
+  uint16_t currentPosition;   //this 16 bit variable will hold our 12-bit position
+
+  while(true) {
+    //reset the timoutCounter;
+    timeoutCounter = 0;
+    
+    //send the rd_pos command to have the AMT20 begin obtaining the current position
+    data = SPIWrite(AMT_READ);
   
-  data = spiWriteRead(AMT_NOP,HIGH); 
-  data = spiWriteRead(AMT_READ,HIGH); 
-  data2 = spiWriteRead(AMT_READ,HIGH);
+    //we need to send nop commands while the encoder processes the current position. We
+    //will keep sending them until the AMT20 echos the rd_pos command, or our timeout is reached.
+    while ((data != AMT_READ) && (timeoutCounter < timoutLimit)) {
+      //Serial.println("Hello");
+      data = SPIWrite(AMT_NOP);
+      timeoutCounter++;
+    }
   
-  //Serial.println(' ');
-  pos = (data2 << 8) | (data1) ;
-  return pos;
-  //Serial.println(pos);
+  
+    if (timeoutCounter < timoutLimit) {
+      //We received the rd_pos echo which means the next two bytes are the current encoder position.
+      //Since the AMT20 is a 12 bit encoder we will throw away the upper 4 bits by masking.
+  
+      //Obtain the upper position byte. Mask it since we only need it's lower 4 bits, and then
+      //shift it left 8 bits to make room for the lower byte.
+      currentPosition = (SPIWrite(AMT_NOP)& 0x0F) << 8;
+  
+      //OR the next byte with the current position
+      currentPosition |= SPIWrite(AMT_NOP);
+    } else {
+      //This means we had a problem with the encoder, most likely a lost connection. For our
+      //purposes we will alert the user via the serial connection, and then stay here forever.
+  
+      Serial.write("Error obtaining position.\n");
+      Serial.write("Reset Arduino to restart program.\n");
+      
+      while(true);
+    }
+
+    /*Serial.write("Current position: ");
+    Serial.print(currentPosition, DEC); //current position in decimal
+    Serial.write("\t 0x");
+    Serial.print(currentPosition, HEX); //current position in hexidecimal
+    Serial.write("\t 0b");
+    Serial.print(currentPosition, BIN); //current position in binary
+    Serial.write("\n");*/
+    
+    
+    //Since we are displaying our position over the serial monitor we don't need updates that fast
+    delay(250);
+
+    return currentPosition;
+  }
 }
 
 void SPI_enc::setZeroSPI() 
 {
-  spiWriteRead(AMT_NOP, LOW);
+  SPIWrite(AMT_NOP);
 
   //this is the time required between bytes as specified in the datasheet.
   //We will implement that time delay here, however the arduino is not the fastest device so the delay
   //is likely inherantly there already
   delayMicroseconds(3); 
   
-  spiWriteRead(AMT_ZERO, HIGH);
+  SPIWrite(AMT_ZERO);
   delay(250); //250 second delay to allow the encoder to reset
 }
