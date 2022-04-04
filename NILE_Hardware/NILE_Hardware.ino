@@ -131,108 +131,154 @@ int waterPlant(int howMuchWater) {
 
 int roboControl(double theta_d, double d_d, double v_d) {
   //Vairable Initialization
-  static double elast_theta = 0, elast_d = 0, elast_v = 0;
-  static double eint_theta = 0, eint_d = 0, eint_v = 0;
+  static double elast_theta = 0, elast_d = 0;
+  static double eint_theta = 0, eint_d = 0;
   static int roboControlState = 0;
+  static int controlMode = 3;
   double dt = (double)(t - prev_t)*0.001; //Seconds
  
-  //Theta gains
-  double Kp_theta = 20, Ki_theta = 0, Kd_theta = 0;
+  //Theta
+  double Kp_theta = 250, Ki_theta = 10, Kd_theta = 10;
   double pwm_theta;
-  double e_theta = theta_d - theta;
+  double e_theta = (theta_d - theta);
   double edot_theta = (e_theta - elast_theta)/(double)(dt);
   eint_theta = eint_theta + elast_theta*(double)(dt);
 
-  //D gains
+  //D
   double Kp_d = 250, Ki_d = 10, Kd_d = 5;
   static double pwm_d = 0;
   double e_d = d_d - d;
   double edot_d = (e_d - elast_d)/(double)(dt);
   eint_d = eint_d + elast_d*(double)(dt);
-  
-  //V gains
-  double Kp_v = 0, Ki_v = 0, Kd_v = 0;
-  double pwm_v;
-  double e_v = v_d - v;
-  double edot_v = (e_v - elast_v)/(double)(t - prev_t);
-  eint_v = (eint_v + elast_v)*(double)(t - prev_t);
 
-  //Control
-  pwm_theta = Kp_theta*e_theta + Ki_theta*eint_theta + Kd_theta*edot_d; //0-255
-  pwm_theta = (pwm_theta > 255.0) ? 255 : pwm_d;
-  pwm_v = Kp_v*e_v + Ki_v*eint_v + Kd_v*edot_v;
-  pwm_v = (pwm_v > 255.0) ? 255 : pwm_v;
+  //V
+  double steps_v = 0;
   
-  if(e_d < 0.001){
-    //Set PWM_D Value
-    pwm_d = 0;
-    //Reset values
-    eint_d = 0;
-    elast_d = 0;
-    roboControlState = 1;
+  //Trolley Control
+  if(controlMode == 1){
+    if(abs(e_theta) < 0.01){
+      //Set PWM_D Value
+      pwm_theta = 0;
+      driveRotation(pwm_theta);
+      //Reset values
+      eint_theta = 0;
+      elast_theta = 0;
+      controlMode++;
+    } else {
+      //Set PWM_D value
+      pwm_theta = -1*(Kp_theta*e_theta + Ki_theta*eint_theta + Kd_theta*edot_theta);
+      pwm_theta = (pwm_theta > 100) ? 100 : pwm_theta; //0-100
+      pwm_theta = (pwm_theta < -100) ? -100 : pwm_theta; //0-100
+      //Set PWM_D values
+      elast_theta = e_theta;
+      driveRotation(pwm_theta);
+    }
+  } else if(controlMode == 2){
+    //Rotation Control
+    if(abs(e_d) < 0.001){
+      //Set PWM_D Value
+      pwm_d = 0;
+      driveTrolley(pwm_d);
+      //Reset values
+      eint_d = 0;
+      elast_d = 0;
+      controlMode++;
+    } else {
+      //Set PWM_D value
+      pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d;
+      pwm_d = (pwm_d > 255.0) ? 255 : pwm_d; //-255 to 255
+      driveTrolley(pwm_d);
+      //Set PWM_D values
+      elast_d = e_d;
+    }
+  } else if(controlMode == 3){
+      steps_v = v_d*400/0.009525;
+      stepStepper(steps_v);
   } else {
-    //Set PWM_D value
-    pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d;
-    pwm_d = (pwm_d > 255.0) ? 255 : pwm_d; //0-255
-    //Set PWM_D values
-    elast_d = e_d;
-    roboControlState = 0;
+      roboControlState = 1;
   }
+  
   //Reference Values
-  Serial.print("e_d: ");
-  Serial.print(e_d, 4);
-  Serial.print(", Step Size: ");
-  Serial.println(dt,4);
-  Serial.print("Trolly PWM: ");
-  Serial.print(pwm_d);
-  Serial.print(", Trolley Joint: ");
-  Serial.println(d);
-  /*Serial.print("T: ");
-  Serial.print(t);
-  Serial.print("Prev_t: ");
-  Serial.println(prev_t);*/
-  //Commands that move the robot
-  driveTrolley(pwm_d);
+  Serial.print("Rotation Position: ");
+  Serial.print(theta, 4);
+  Serial.print(", Rotation Error: ");
+  Serial.print(e_theta);
+  Serial.print(", Rotation PWM: ");
+  Serial.print(pwm_theta);
+  Serial.print(", Theta_d: ");
+  Serial.println(theta_d);
   
   return roboControlState;
 }
 
 int roboHome(){
   static bool homeTrolley = false;
-  static bool homeRotation = false;
-  static int trolleyMode = 1;
+  static bool homeStepper = true;
+  static int trolleyMode = 1, stepperMode = 1, homeMode = 2;
   static int roboHome_ = 0;
   double pwm_trolley = -150;
   double pwm_theta = 50;
- 
-  if(trolleyMode == 1){
-    driveTrolley(-250);
-    if(digitalRead(P_TROLLEY_SW) == 1){
-      Serial.println("Case 1");
-      driveTrolley(0);
-      trolleyMode = 2;
-    }
-  } else if (trolleyMode == 2){
-    Serial.println("Case 2");
-    driveTrolley(150);
-    delay(2000);
-    driveTrolley(0);
-    trolleyMode = 3;
-  }else{
-    driveTrolley(-100);
-    if(digitalRead(P_TROLLEY_SW)){
-      Serial.println("Case 3");
-      d_count = 0;
-      driveTrolley(0);
-      delay(1000);
-      homeTrolley = true;
-    }
-  }
 
-  if(homeTrolley){
+  //Trolley homing
+  if(homeMode == 1){
+    if(trolleyMode == 1){
+      driveTrolley(-250);
+      if(digitalRead(P_TROLLEY_SW) == 1){
+        Serial.println("Case 1");
+        driveTrolley(0);
+        trolleyMode = 2;
+      }
+    } else if (trolleyMode == 2){
+      Serial.println("Case 2");
+      driveTrolley(250);
+      if(digitalRead(P_TROLLEY_SW) == 0){
+        driveTrolley(0);
+        trolleyMode = 3;
+      }
+      
+    }else{
+      driveTrolley(-100);
+      if(digitalRead(P_TROLLEY_SW)){
+        Serial.println("Case 3");
+        d_count = 0;
+        driveTrolley(0);
+        homeMode++;
+      }
+    }
+  } else if(homeMode == 2){
+    if(stepperMode == 1){
+      driveStepper(1500);
+      if(digitalRead(P_VERT_SW) == 1){
+        Serial.println("Case 1");
+        driveStepper(0);
+        stepperMode = 2;
+      }
+    } else if(stepperMode == 2){
+        Serial.println("Case 2");
+        driveStepper(-1000);
+        if(digitalRead(P_TROLLEY_SW) == 0){
+          driveStepper(0);
+          trolleyMode = 3;
+        }
+    } else if (stepperMode == 3){
+      Serial.println("Case 2");
+      delay(2000);
+      driveStepper(0);
+      stepperMode = 4;
+    }else{
+      driveStepper(1000);
+      if(digitalRead(P_VERT_SW)){
+        Serial.println("Case 3");
+        v_count = 0;
+        driveStepper(0);
+        delay(1000);
+        homeMode++;
+      }
+    }
+  } else {
     roboHome_ = 1;
-    homeTrolley = false;
   }
+  
   return roboHome_;
 }
 
@@ -277,6 +323,9 @@ int driveRotation(double speed)
   if (speed>0)
   {
     analogWrite(P_WHEEL_PWM_F,(int)abs(speed));
+  } else if(speed == 0){
+    analogWrite(P_WHEEL_PWM_F, 0);
+    analogWrite(P_WHEEL_PWM_B, 0);
   }
   else
   {
@@ -298,7 +347,23 @@ int driveTrolley(double speed)
   }
   return 1;
 }
-
+int driveStepper(double speed_v) {
+  if(speed_v == 0){
+    vert.stop();
+  } else {
+    vert.setSpeed(speed_v);
+    vert.runSpeed(); 
+  }
+  return 1;
+}
+int stepStepper(int steps){
+  vert.moveTo(steps);
+  while(vert.distanceToGo()){
+    vert.run();
+    v_count = v_count + steps;
+  }
+  return 1;
+}
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
 
