@@ -1,6 +1,6 @@
 #include "quad_enc.h"
 
-QuadEnc::QuadEnc(int clk, int dir) 
+QuadEnc::QuadEnc(int clk, int dir)
 {
   clk_pin = clk;
   dir_pin = dir;

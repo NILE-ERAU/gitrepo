@@ -8,7 +8,7 @@ class ADCI2C
 public:
   ADCI2C(int address);
   void init();
-  int read(int channel);
+  double read(int channel);
 private:
   int adr;
 };

@@ -414,8 +414,11 @@ void loop() {
   d = -1*readTrolleyPos()+0.2275;
   v = readVerticalPos();
 
-  //roboHome_ = false;
+  roboHome_ = false;
   roboControl_ = false;
+
+
+
 
   //System Mode
   if(roboHome_){
