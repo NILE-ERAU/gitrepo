@@ -1,18 +1,17 @@
-//SPI_enc.h - Library for spi encoder
-//Created by Tia, 3/11/22
-
-#ifndef spi_enc
-#define spi_enc
+#ifndef quad_enc
+#define quad_enc
 
 #include <Arduino.h>
 
-class SPI_enc 
+class QuadEnc
 {
-  public:
-    void init();
-    uint8_t SPIWrite(uint8_t sendByte);
-    uint16_t getPos(); 
-    void setZeroSPI();
+public:
+  QuadEnc(int clk, int dir);
+  void init();
+  int count();
+private:
+  int clk_pin;
+  int dir_pin;
 };
 
 #endif

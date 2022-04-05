@@ -23,7 +23,7 @@
 #include "quad_enc.h"
 #include "spi_enc.h"
 #include <Wire.h>
- 
+#include <AccelStepper.h>
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Pin Assignments
@@ -52,10 +52,13 @@
 #define P_FLOW A9 //Fluid box flowmeter, pulses (I had to put this on an ADC pin because i thought i had ran out of interrupt pins)
 
 //-----------------------------------------------------------------------------------------------------------------------
+//Stepper Stuff
+#define motorInterfaceType 1
+AccelStepper vert(motorInterfaceType, P_VERT_STEP, P_VERT_DIR);
+//-----------------------------------------------------------------------------------------------------------------------
 //Global Variables
 unsigned long t = 0; //local time variable, hopefully won't overflow
 unsigned long prev_t = 0; //previous time, used for derivative controller
-unsigned int water_count = 0; //interrupt changed variable as flowmeter ticks
 
 //Joint Variables
 double theta = 0;
@@ -121,13 +124,15 @@ void setup() {
   trolley_enc.init();
   rotary_enc.init();
   EE_ADC.init();
+  vert.setMaxSpeed(2000);
+  vert.setAcceleration(500);
+
+  //Test Variables
+  roboHome_ = true;
+  roboControl_ = true;
 }
 //-----------------------------------------------------------------------------------------------------------------------
 // Robot Functions
-int waterPlant(int howMuchWater) {
-      digitalWrite(P_WATER_SOLE,HIGH);//opens solenoids
-      water_count = howMuchWater + water_count;//this only works if the fucntion gets called agian while the function still has water remaining to dispense
- }
 
 int roboControl(double theta_d, double d_d, double v_d) {
   //Vairable Initialization
@@ -287,7 +292,11 @@ double readRotation()
   uint16_t raw;
   double theta;
   raw = rotary_enc.getPos();  //receive number of counts
-  theta = ((2*PI)/4095)*(double)raw;  //convert counts to radians
+  theta = 2*PI/4095*(double)raw;  //convert counts to degrees
+  /*Serial.print("Theta Value: ");
+  Serial.print(theta,4);
+  Serial.print(", Raw Encoder: ");
+  Serial.println(raw);*/
   return theta;
 }
 
@@ -298,9 +307,10 @@ double readVerticalPos(){
 }
 
 double readTrolleyPos() {
-  double countsPerRot = 1024;
-  double wheel_r = 0.02905;
-  return (d_count/countsPerRot)*(2*wheel_r*PI);
+  double countsPerRot = 2048;
+  double wheel_d = 0.02905;
+  //Include the initial offset from the center post to the trolley offset 0.2275
+  return (d_count/countsPerRot)*(wheel_d*PI);
 }
 
 int readSoilMoist()
@@ -320,6 +330,7 @@ double readHVECTemp()
 
 int driveRotation(double speed)
 {
+  //Positive speed is counterclockwise looking down
   if (speed>0)
   {
     analogWrite(P_WHEEL_PWM_F,(int)abs(speed));
@@ -347,6 +358,7 @@ int driveTrolley(double speed)
   }
   return 1;
 }
+//Drive stepper motor based on speed
 int driveStepper(double speed_v) {
   if(speed_v == 0){
     vert.stop();
@@ -362,22 +374,14 @@ int stepStepper(int steps){
     vert.run();
     v_count = v_count + steps;
   }
-  return 1;
 }
+
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
 
 ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
  {    
   d_count += trolley_enc.count(); //handles the trolley counting encoder
-   if(PCINT0_vect and P_TROLLEY_FLOW){
-      if( water_count < 1){
-        digitalWrite(P_WATER_SOLE,LOW);
-      }else{
-        water_count--;
-      }
-  
-  }
  }
  
 ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
@@ -392,20 +396,46 @@ ISR (PCINT2_vect) // handle pin change interrupt for D0 to D7 here
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Main Loop
- 
+//Negative step moves stepper down 
 
 void loop() {
+  int roboControlState = 0;
+  int roboHomeState = 0;
+  bool testBool = true;
+  double testDouble = -1.01;
   t = millis();
+  /*Serial.print("Step Size: ");
+  Serial.println(t-prev_t);*/
 
   //ROS Fetching
 
   //Update Sensors
   theta = readRotation();
-  d = readTrolleyPos();
+  d = -1*readTrolleyPos()+0.2275;
   v = readVerticalPos();
 
-  //System Modes
-
+  //roboHome_ = false;
+  roboControl_ = false;
+  
+  //System Mode
+  if(roboHome_){
+    roboHomeState = roboHome();
+    Serial.print("Trolley Position: ");
+    Serial.println(readTrolleyPos());
+    if(roboHomeState == 1){
+      roboHome_ = false;
+      roboControl_ = false;
+    }
+  }else if(roboControl_){
+    roboControlState = roboControl(2.35, 0.5, 0);
+    if(roboControlState == 3){
+      Serial.println("Controller Stopped");
+      roboControl_ = false;
+    }
+  } else {
+    //driveRotation(45);
+  }
+  
 
   prev_t = t;
 }

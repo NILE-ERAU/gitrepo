@@ -10,7 +10,7 @@ class SPI_enc
 {
   public:
     void init();
-    uint8_t spiWriteRead(uint8_t sendByte, uint8_t releaseLine);
+    uint8_t SPIWrite(uint8_t sendByte);
     uint16_t getPos(); 
     void setZeroSPI();
 };

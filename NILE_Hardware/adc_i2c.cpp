@@ -1,9 +1,7 @@
-//Driver for AD7995 4-Channel 10 Bit ADC
-//Nicodemus Phaklides
 #include "adc_i2c.h"
 #include <Wire.h>
 
-ADCI2C::ADCI2C(int address)
+ADCI2C::ADCI2C(int address) 
 {
   adr = address;
 }
@@ -11,7 +9,7 @@ void ADCI2C::init()
 {
   Wire.begin();
 }
-double ADCI2C::read(int channel)
+int ADCI2C::read(int channel)
 {
   byte reg = 0;
   switch(channel) {
@@ -23,9 +21,9 @@ double ADCI2C::read(int channel)
   Wire.beginTransmission(adr);
   Wire.write(reg); //selects configuration register
   Wire.endTransmission();
-
+  
   delay(50);
-
+  
   Wire.requestFrom(adr, 2);
   int data = 0;
   if (2 <= Wire.available()) {
@@ -33,18 +31,6 @@ double ADCI2C::read(int channel)
     data &= 0x7;
     data = data << 8;
     data |= Wire.read();
-  }
-
-  if (channel == 1 || channel === 2) {
-    double Vs = 5*double(data/1023);
-    double Rs = (100000*Vs)/(5-Vs);
-    double A = 0.001424496067374;
-    double B = 1.511635517653385*pow(10,-4);
-    double C = 2.445546167968906*pow(10,-7);
-    double temperature = 1.0/(A + B*log(Rs) + pow(C*log(Rs),3));
-    return temperature
-  }
-  else {
-    return double(data);
-  }
+  } 
+  return data;
 }
