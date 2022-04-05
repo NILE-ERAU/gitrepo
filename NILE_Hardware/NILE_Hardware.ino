@@ -96,14 +96,14 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Starting...");
 
-  
+
   //Digital Outputs
   pinMode(P_STATUS_LED, OUTPUT); //Board status LED
   pinMode(P_HVEC, OUTPUT); //DO NOT TURN ON UNLESS U KNOW WHAT U ARE DOING!!
   digitalWrite(P_HVEC, 0); //PLEASE FOR REAL
   pinMode(P_WATER_SOLE, OUTPUT); //Water solenoid
   pinMode(P_FERT_SOLE, OUTPUT);//Fertilizer solenoid
-  
+
   //Motors
   pinMode(P_TROLLEY_PWM_F, OUTPUT); //Trolley motor "Forward" PWM signal
   pinMode(P_TROLLEY_PWM_B, OUTPUT); //Trolley motor "Backward" PWM signal
@@ -111,7 +111,7 @@ void setup() {
   pinMode(P_VERT_DIR, OUTPUT); //Vertical stepper step direction
   pinMode(P_WHEEL_PWM_F, OUTPUT); //Wheel motor "Forward" PWM signal
   pinMode(P_WHEEL_PWM_B, OUTPUT); //Wheel motor "Backward" PWM signal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
-  
+
   //Analog Sensors
   pinMode(P_TROLLEY_SW, INPUT); //Trolley callibration limit switch
   pinMode(P_VERT_SW, INPUT); //Vertical stepper callibration limit switch
@@ -119,7 +119,7 @@ void setup() {
   pinMode(P_TROLLEY_ENC_DIR, INPUT); //Trolley encoder direction signal (from decoder, handled by quad_enc.h)
   pinMode(P_TROLLEY_FLOW, INPUT); //Trolley flowmeter, pulses
   pinMode(P_FLOW, INPUT); //Fluid box flowmeter
-  
+
   //Sensor initialization
   trolley_enc.init();
   rotary_enc.init();
@@ -141,7 +141,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
   static int roboControlState = 0;
   static int controlMode = 3;
   double dt = (double)(t - prev_t)*0.001; //Seconds
- 
+
   //Theta
   double Kp_theta = 250, Ki_theta = 10, Kd_theta = 10;
   double pwm_theta;
@@ -158,7 +158,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
 
   //V
   double steps_v = 0;
-  
+
   //Trolley Control
   if(controlMode == 1){
     if(abs(e_theta) < 0.01){
@@ -202,7 +202,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
   } else {
       roboControlState = 1;
   }
-  
+
   //Reference Values
   Serial.print("Rotation Position: ");
   Serial.print(theta, 4);
@@ -212,7 +212,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
   Serial.print(pwm_theta);
   Serial.print(", Theta_d: ");
   Serial.println(theta_d);
-  
+
   return roboControlState;
 }
 
@@ -240,7 +240,7 @@ int roboHome(){
         driveTrolley(0);
         trolleyMode = 3;
       }
-      
+
     }else{
       driveTrolley(-100);
       if(digitalRead(P_TROLLEY_SW)){
@@ -283,7 +283,7 @@ int roboHome(){
   } else {
     roboHome_ = 1;
   }
-  
+
   return roboHome_;
 }
 
@@ -364,7 +364,7 @@ int driveStepper(double speed_v) {
     vert.stop();
   } else {
     vert.setSpeed(speed_v);
-    vert.runSpeed(); 
+    vert.runSpeed();
   }
   return 1;
 }
@@ -380,23 +380,23 @@ int stepStepper(int steps){
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
 
 ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
- {    
+ {
   d_count += trolley_enc.count(); //handles the trolley counting encoder
  }
- 
+
 ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
  {
 
- }  
- 
+ }
+
 ISR (PCINT2_vect) // handle pin change interrupt for D0 to D7 here
  {
-    
- }  
+
+ }
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Main Loop
-//Negative step moves stepper down 
+//Negative step moves stepper down
 
 void loop() {
   int roboControlState = 0;
@@ -416,7 +416,7 @@ void loop() {
 
   //roboHome_ = false;
   roboControl_ = false;
-  
+
   //System Mode
   if(roboHome_){
     roboHomeState = roboHome();
@@ -435,7 +435,7 @@ void loop() {
   } else {
     //driveRotation(45);
   }
-  
+
 
   prev_t = t;
 }
