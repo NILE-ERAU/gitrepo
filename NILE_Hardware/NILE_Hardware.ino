@@ -59,6 +59,7 @@ AccelStepper vert(motorInterfaceType, P_VERT_STEP, P_VERT_DIR);
 //Global Variables
 unsigned long t = 0; //local time variable, hopefully won't overflow
 unsigned long prev_t = 0; //previous time, used for derivative controller
+double prevSoilTemp = -273; //used to smooth out temp measurements, dont change init
 
 //Joint Variables
 double theta = 0;
@@ -320,7 +321,19 @@ int readSoilMoist()
 
 double readSoilTemp()
 {
-  return EE_ADC.read(1);
+  double soilTemp = EE_ADC.read(1);
+  if (prevSoilTemp == -273) {
+    prevSoilTemp = soilTemp;
+  }
+  double smoothedTemp = 0.02*soilTemp + 0.98*prevSoilTemp;
+  prevSoilTemp = smoothedTemp;
+  //Serial Plotter Stuff
+  //Serial.print("Soil_Temp:");
+  //Serial.print(soilTemp);
+  //Serial.print(",");
+  //Serial.print("Filtered_Soil_Temp:");
+  //Serial.println(smoothedTemp);
+  return smoothedTemp;
 }
 
 double readHVECTemp()
@@ -375,6 +388,33 @@ int stepStepper(int steps){
     v_count = v_count + steps;
   }
 }
+int pulseHVEC(int onTime, int offTime, int pulses) {
+  //PERIOD IS DEFINED IN MILLISECONDS
+
+  //Siren
+  tone(P_BUZZER, 1000);
+  delay(5000);
+  noTone(P_BUZZER);
+  delay(1000);
+
+  for (int i = 0; i < pulses; i++) {
+     digitalWrite(P_HVEC, HIGH);
+     delay(onTime);
+     digitalWrite(P_HVEC, LOW);
+     delay(offTime);
+  }
+  //do the little tone
+  digitalWrite(P_HVEC, 0);
+  tone(P_BUZZER, 1046,500);
+  delay(500);
+  tone(P_BUZZER, 1318,500);
+  delay(500);
+  tone(P_BUZZER, 1568,500);
+  delay(500);
+  noTone(P_BUZZER);
+  HVEC_ = false;
+  return 1;
+}
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Interrupt functions (Only PCINT0 enabled as of 3/14)
@@ -397,6 +437,7 @@ ISR (PCINT2_vect) // handle pin change interrupt for D0 to D7 here
 //-----------------------------------------------------------------------------------------------------------------------
 //Main Loop
 //Negative step moves stepper down
+
 
 void loop() {
   int roboControlState = 0;
@@ -435,9 +476,13 @@ void loop() {
       Serial.println("Controller Stopped");
       roboControl_ = false;
     }
-  } else {
-    //driveRotation(45);
   }
+
+  if (HVEC_) {
+    pulseHVEC(5000,5000,1);
+    HVEC_ = false;
+  }
+
 
 
   prev_t = t;

@@ -35,13 +35,13 @@ double ADCI2C::read(int channel)
     data |= Wire.read();
   }
 
-  if (channel == 1 || channel == 2) {
-    double Vs = 5*double(data/1023);
-    double Rs = (100000*Vs)/(5-Vs);
-    double A = 0.001424496067374;
-    double B = 1.511635517653385*pow(10,-4);
-    double C = 2.445546167968906*pow(10,-7);
-    double temperature = 1.0/(A + B*log(Rs) + pow(C*log(Rs),3));
+  if (channel == 1) {
+    float Vs = 5*float(data)/4095;
+    float Rs = (100000*Vs)/(5-Vs);
+    float A = 0.001424496067374;
+    float B = 1.511635517653385*pow(10,-4);
+    float C = 2.445546167968906*pow(10,-7);
+    double temperature = 1.0/(A + B*log(Rs) + C*pow(log(Rs),3)) - 273.15;
     return temperature;
   }
   else {
