@@ -139,8 +139,8 @@ int roboControl(double theta_d, double d_d, double v_d) {
   //Vairable Initialization
   static double elast_theta = 0, elast_d = 0;
   static double eint_theta = 0, eint_d = 0;
-  static int roboControlState = 0;
-  static int controlMode = 3;
+  int roboControlState = 0;
+  static int controlMode = 1;
   double dt = (double)(t - prev_t)*0.001; //Seconds
 
   //Theta
@@ -200,8 +200,10 @@ int roboControl(double theta_d, double d_d, double v_d) {
   } else if(controlMode == 3){
       steps_v = v_d*400/0.009525;
       stepStepper(steps_v);
+      controlMode = 4;
   } else {
       roboControlState = 1;
+      controlMode = 1;
   }
 
   //Reference Values
@@ -220,7 +222,7 @@ int roboControl(double theta_d, double d_d, double v_d) {
 int roboHome(){
   static bool homeTrolley = false;
   static bool homeStepper = true;
-  static int trolleyMode = 1, stepperMode = 1, homeMode = 2;
+  static int trolleyMode = 1, stepperMode = 1, homeMode = 1;
   static int roboHome_ = 0;
   double pwm_trolley = -150;
   double pwm_theta = 50;
