@@ -1,3 +1,7 @@
+/* Arduino publishers: robot current coordinates, water flow meter*/
+
+// Define function for receiving 
+
 //
 //            /\
 //           /  \
@@ -15,6 +19,7 @@
 
 //Nicodemus Phaklides - NILE_Hardware.ino (3/14), adc_i2c.h, quad_enc.h, temp_i2c.h
 //Tia McKenzie - spi_enc.h
+//Emmanuel Jefferson - NILE_Hardware.ino (4/13)
 
 //-----------------------------------------------------------------------------------------------------------------------
 //Required Libraries
@@ -25,10 +30,10 @@
 #include <Wire.h>
 #include <AccelStepper.h>
 
-// Import libraries for ROS nodes
-#include <ros.h>
+#include <nile_ros_arduino>
 #include <std_msgs/Empty.h>
 #include <std_msgs/String.h>
+#include <std_msgs/UInt16.h> 
 
 ros::NodeHandle nh;
 
@@ -92,54 +97,6 @@ QuadEnc trolley_enc(P_TROLLEY_ENC_COUNT,P_TROLLEY_ENC_DIR); //Trolley Encoder
 SPI_enc rotary_enc; //Rotary absolute encoder
 
 //-----------------------------------------------------------------------------------------------------------------------
-// ROS-actuated functions
-
-// Define function for robot homing node
-// NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION 
-void homing(const std_msgs::String& cmd_msg) {
-  // Initialize homing state variables
-  static bool hometrolley = false;
-  static bool homestepper = false;
-  static bool homerot = false; 
-
-   // Store input string
-  String input = cmd_msg.data;
-
-  // Flag trolley homing variable
-  if(input.equalsIgnoreCase("trolley") == true) {
-    hometrolley = true;  
-  }
-
-  else if(input.equalsIgnoreCase("stepper") == true) {
-    homestepper = true;
-  }
-
-  else if(input.equalsIgnoreCase("rot") == true) {
-    homerot = true;
-  }  
-}
-
-// Define function for receiving and processing target task-space coordinates
-void movement(const std_msgs::String& cmd_msg) {
-  // Receive string input and convert to char array
-  String input = cmd_msg.data;
-  char coords[input.length()+1];
-  input.toCharArray(coords, input.length()+1);
-
-  // Call robot control function to execute movement
-  roboControl(coords);
-}
-
-//---------------------------------------------------------------------------------------------------
-// Define ROS subscribers
-// Node home_sub subscribes to topic "home" and references "homing" function
-ros::Subscriber<std_msgs::String> home_sub("home", &homing);
-// Node move_sub subscribes to topic "coordinates" and references "movement" function
-ros::Subscriber<std_msgs::String> move_sub("coordinates", &movement);
-
-// Node 
-
-//---------------------------------------------------------------------------------------------------
 //Setup Function
 void setup() {
   // Sets interrupt for PCINT0
@@ -176,7 +133,7 @@ void setup() {
   pinMode(P_TROLLEY_FLOW, INPUT); //Trolley flowmeter, pulses
   pinMode(P_FLOW, INPUT); //Fluid box flowmeter
 
-  //Sensor initialization
+  //Sensor and stepper motor initialization
   trolley_enc.init();
   rotary_enc.init();
   EE_ADC.init();
@@ -186,25 +143,21 @@ void setup() {
   //Test Variables
   roboHome_ = true;
   roboControl_ = true;
-
-  // Initialize ROS node and define topic subscribers
-  nh.initNode();
-  nh.subscribe(home_sub);
-  nh.subscribe(move_sub);
 }
-
 //-----------------------------------------------------------------------------------------------------------------------
 // Robot Functions
 
-//int roboControl(double theta_d, double d_d, double v_d) {
-int roboControl(char* coords) {
+// Define function for receiving ROS movement command data
+void move_robot(const std_msgs::String& cmd_msg) {
+  
+  // Receive the string and convert to char array
+  String coord = cmd_msg.data;
+  char movement[coord.length()+1];
+  coord.toCharArray(movement, coord.length()+1);
+  
+}
 
-  // Parse the coordinates character-array into sections and store relevant variables
-  // then convert char entries to doubles using atof() function
-  double theta_d = atof(strtok(coords, " :,"));
-  double d_d = atof(strtok(NULL, " :,"));
-  double v_d = atof(strtok(NULL, " :,"));
- 
+int roboControl(double theta_d, double d_d, double v_d) {
   //Vairable Initialization
   static double elast_theta = 0, elast_d = 0;
   static double eint_theta = 0, eint_d = 0;
@@ -357,7 +310,6 @@ int roboHome(){
   }
 
   return roboHome_;
-  nh.spinOnce();
 }
 
 double readRotation()
@@ -520,6 +472,8 @@ void loop() {
   /*Serial.print("Step Size: ");
   Serial.println(t-prev_t);*/
 
+  //ROS Fetching
+
   //Update Sensors
   theta = readRotation();
   d = -1*readTrolleyPos()+0.2275;
@@ -528,10 +482,8 @@ void loop() {
   roboHome_ = false;
   roboControl_ = false;
 
-  // Publish coordinates
 
-  // read and publish sensor readings upon ROS request
-
+  // Publish sensors
 
   //System Mode
   if(roboHome_){
@@ -543,8 +495,7 @@ void loop() {
       roboControl_ = false;
     }
   }else if(roboControl_){
-    char coords = "2.35, 0.5, 0";
-    roboControlState = roboControl(coords);
+    roboControlState = roboControl(2.35, 0.5, 0);
     if(roboControlState == 3){
       Serial.println("Controller Stopped");
       roboControl_ = false;
@@ -556,9 +507,7 @@ void loop() {
     HVEC_ = false;
   }
 
-  prev_t = t;
 
-  // Implement ROS timestamp update and a 1ms delay to keep ROS serial communication updated
-  nh.spinOnce();
-  delay(1);
+
+  prev_t = t;
 }
