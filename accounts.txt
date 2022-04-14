@@ -1,0 +1,14 @@
+# To link local repositories to github account (omit quotations)
+git config --global user.email "you@example.com"
+git config --global user.name "Your username" 
+
+# To update all directories stored in Github gitrepo
+cd gitrepo
+git add .
+git commit -m "Short descrition of changes being made/pushed"
+git push
+
+# NILE username
+NILE-ERAU
+# NILE git token
+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
