@@ -1,6 +1,8 @@
 import subprocess
 import os
-subprocess.call(["gnome-terminal", "--","python3", "cv_test.py"])
+# Uncomment for final product: launches terminal in proper directory and
+# virtual environment
+#subprocess.call(["gnome-terminal", "--","python3", "virtualenv_start.py"])
 
 # Launch ROS master node 'roscore'
 roscore = subprocess.Popen('roscore')
