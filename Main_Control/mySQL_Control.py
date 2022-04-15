@@ -9,8 +9,10 @@ sql = mysql.connector.connect(
     port="3306",
     user="nilepython",
     password="Trolley123!",
-    database="NILE"
+    database="NILE",
+    autocommit=True
 )
+
 
 # Function to get ip address
 def get_ip():
@@ -31,24 +33,24 @@ def assign_ip():
     cursor = sql.cursor()
     ip = get_ip()
     cursor.execute("INSERT INTO system_info (ip_address) VALUES ('" + str(ip) + "')")
-    cursor.execute("SELECT * FROM system_info")
-    result = cursor.fetchall()
+    sql.commit()
     cursor.close()
-    return result
+    return 0
 
 def pull_next_command():
     cursor = sql.cursor()
     cursor.execute("SELECT * FROM queued_commands ORDER BY timestamp ASC LIMIT 1")
-    result = cursor.fetchall()
-    id = result[0][0]
-    timestamp = result[0][1]
-    command = result[0][2]
-    theta = result[0][3]
-    r = result[0][4]
-    z = result[0][5]
-    d0 = result[0][6]
-    d1 = result[0][7]
-    i0 = result[0][8]
+    result = cursor.fetchone()
+    cursor.fetchall()
+    id = result[0]
+    timestamp = result[1]
+    command = result[2]
+    theta = result[3]
+    r = result[4]
+    z = result[5]
+    d0 = result[6]
+    d1 = result[7]
+    i0 = result[8]
     cursor.close()
 
     return [id, timestamp, command, theta, r, z, d0, d1, i0]
@@ -89,7 +91,3 @@ def publish_soil_sample(theta, r, z, moisture, temp):
     sql.commit()
     cursor.close()
     return 0
-
-
-print(time_until())
-complete_command(0,0,0,"Testing")
