@@ -29,6 +29,7 @@
 #include <ros.h>
 #include <std_msgs/Empty.h>
 #include <std_msgs/String.h>
+//#include <std_msgs/Float64MultiArray.h>
 
 ros::NodeHandle nh;
 
@@ -137,6 +138,11 @@ ros::Subscriber<std_msgs::String> home_sub("home", &homing);
 // Node move_sub subscribes to topic "coordinates" and references "movement" function
 ros::Subscriber<std_msgs::String> move_sub("coordinates", &movement);
 
+
+//std_msgs::Float64MultiArray encoder_array;
+
+// Node encoder_pub publishers to topic "encoder" and posts encoder_array data
+//ros::Publisher encoder_pub("encoder", &encoder_array);
 // Node 
 
 //---------------------------------------------------------------------------------------------------
@@ -148,9 +154,9 @@ void setup() {
   PCMSK0 |= 0b00010000; // PCINT0
   sei();
 
-  //Serial Monitor for debugging (Serial.prinln())
-  Serial.begin(9600);
-  Serial.println("Starting...");
+  //Serial Monitor for debugging (//Serial.prinln())
+  // Serial.begin(57600);
+  //Serial.println("Starting...");
 
 
   //Digital Outputs
@@ -191,6 +197,9 @@ void setup() {
   nh.initNode();
   nh.subscribe(home_sub);
   nh.subscribe(move_sub);
+
+  // Define ROS publishers
+  //nh.advertise(encoder_pub);
 }
 
 //-----------------------------------------------------------------------------------------------------------------------
@@ -204,7 +213,7 @@ int roboControl(char* coords) {
   double theta_d = atof(strtok(coords, " :,"));
   double d_d = atof(strtok(NULL, " :,"));
   double v_d = atof(strtok(NULL, " :,"));
- 
+
   //Vairable Initialization
   static double elast_theta = 0, elast_d = 0;
   static double eint_theta = 0, eint_d = 0;
@@ -276,18 +285,19 @@ int roboControl(char* coords) {
   }
 
   //Reference Values
-  Serial.print("Rotation Position: ");
-  Serial.print(theta, 4);
-  Serial.print(", Rotation Error: ");
-  Serial.print(e_theta);
-  Serial.print(", Rotation PWM: ");
-  Serial.print(pwm_theta);
-  Serial.print(", Theta_d: ");
-  Serial.println(theta_d);
+  //Serial.print("Rotation Position: ");
+  //Serial.print(theta, 4);
+  //Serial.print(", Rotation Error: ");
+  //Serial.print(e_theta);
+  //Serial.print(", Rotation PWM: ");
+  //Serial.print(pwm_theta);
+  //Serial.print(", Theta_d: ");
+  //Serial.println(theta_d);
 
   return roboControlState;
 }
 
+// Adjust homing function with Jake's help
 int roboHome(){
   static bool homeTrolley = false;
   static bool homeStepper = true;
@@ -296,67 +306,81 @@ int roboHome(){
   double pwm_trolley = -150;
   double pwm_theta = 50;
 
-  //Trolley homing
+  //Trolley homing, moving towards switch
   if(homeMode == 1){
     if(trolleyMode == 1){
       driveTrolley(-250);
       if(digitalRead(P_TROLLEY_SW) == 1){
-        Serial.println("Case 1");
+        //Serial.println("Case 1");
         driveTrolley(0);
         trolleyMode = 2;
       }
+
+     // Trolley homing, checking for switch to be released
     } else if (trolleyMode == 2){
-      Serial.println("Case 2");
+      //Serial.println("Case 2");
       driveTrolley(250);
       if(digitalRead(P_TROLLEY_SW) == 0){
         driveTrolley(0);
         trolleyMode = 3;
       }
 
+    // Trolley homing, repress limit switch
     }else{
       driveTrolley(-100);
       if(digitalRead(P_TROLLEY_SW)){
-        Serial.println("Case 3");
+        //Serial.println("Case 3");
         d_count = 0;
         driveTrolley(0);
         homeMode++;
       }
     }
+
+    // Stepper homing, moving towards switch
   } else if(homeMode == 2){
     if(stepperMode == 1){
       driveStepper(1500);
       if(digitalRead(P_VERT_SW) == 1){
-        Serial.println("Case 1");
+        //Serial.println("Case 1");
         driveStepper(0);
         stepperMode = 2;
       }
+      
+     // Stepper homing, checking for switch to be released
     } else if(stepperMode == 2){
-        Serial.println("Case 2");
+        //Serial.println("Case 2");
         driveStepper(-1000);
         if(digitalRead(P_TROLLEY_SW) == 0){
           driveStepper(0);
           trolleyMode = 3;
         }
+        
+// Stepper homing, repress limit switch
     } else if (stepperMode == 3){
-      Serial.println("Case 2");
+      //Serial.println("Case 2");
       delay(2000);
       driveStepper(0);
       stepperMode = 4;
     }else{
       driveStepper(1000);
       if(digitalRead(P_VERT_SW)){
-        Serial.println("Case 3");
+        //Serial.println("Case 3");
         v_count = 0;
         driveStepper(0);
         delay(1000);
         homeMode++;
       }
     }
-  } else {
+  } 
+  // Set roboHome_ to indicate homing completion
+  else {
     roboHome_ = 1;
   }
 
+  // Return roboHome state
   return roboHome_;
+
+  // Update ROS timestamp
   nh.spinOnce();
 }
 
@@ -366,10 +390,10 @@ double readRotation()
   double theta;
   raw = rotary_enc.getPos();  //receive number of counts
   theta = 2*PI/4095*(double)raw;  //convert counts to degrees
-  /*Serial.print("Theta Value: ");
-  Serial.print(theta,4);
-  Serial.print(", Raw Encoder: ");
-  Serial.println(raw);*/
+  /*//Serial.print("Theta Value: ");
+  //Serial.print(theta,4);
+  //Serial.print(", Raw Encoder: ");
+  //Serial.println(raw);*/
   return theta;
 }
 
@@ -400,11 +424,11 @@ double readSoilTemp()
   double smoothedTemp = 0.02*soilTemp + 0.98*prevSoilTemp;
   prevSoilTemp = smoothedTemp;
   //Serial Plotter Stuff
-  //Serial.print("Soil_Temp:");
-  //Serial.print(soilTemp);
-  //Serial.print(",");
-  //Serial.print("Filtered_Soil_Temp:");
-  //Serial.println(smoothedTemp);
+  ////Serial.print("Soil_Temp:");
+  ////Serial.print(soilTemp);
+  ////Serial.print(",");
+  ////Serial.print("Filtered_Soil_Temp:");
+  ////Serial.println(smoothedTemp);
   return smoothedTemp;
 }
 
@@ -512,23 +536,36 @@ ISR (PCINT2_vect) // handle pin change interrupt for D0 to D7 here
 
 
 void loop() {
+// Consider commenting out all Serial.prints after void Setup()
+// Trying to read Arduino console with ROS running disrupts serial connection
+  
   int roboControlState = 0;
   int roboHomeState = 0;
   bool testBool = true;
   double testDouble = -1.01;
   t = millis();
-  /*Serial.print("Step Size: ");
-  Serial.println(t-prev_t);*/
+  /*//Serial.print("Step Size: ");
+  //Serial.println(t-prev_t);*/
 
-  //Update Sensors
-  theta = readRotation();
-  d = -1*readTrolleyPos()+0.2275;
-  v = readVerticalPos();
-
+  //Update encoders
+  float theta = float(readRotation());
+  float d = float(-1*readTrolleyPos()+0.2275);
+  float v = float(readVerticalPos());
+  
+  //float location[] = {theta, d, v};
+  float location[] = {1, 2, 3};
+//
+//  // Publish joint encoder values to ROS
+//  //double encoder_talk.data = [theta, d, v];
+//  encoder_array.data = location;
+//  encoder_array.data_length = 3;
+//
+//  // Publish updated encoder values
+//  encoder_pub.publish(&encoder_array);
+  
   roboHome_ = false;
   roboControl_ = false;
 
-  // Publish coordinates
 
   // read and publish sensor readings upon ROS request
 
@@ -536,8 +573,8 @@ void loop() {
   //System Mode
   if(roboHome_){
     roboHomeState = roboHome();
-    Serial.print("Trolley Position: ");
-    Serial.println(readTrolleyPos());
+    //Serial.print("Trolley Position: ");
+    //Serial.println(readTrolleyPos());
     if(roboHomeState == 1){
       roboHome_ = false;
       roboControl_ = false;
@@ -546,7 +583,7 @@ void loop() {
     char coords = "2.35, 0.5, 0";
     roboControlState = roboControl(coords);
     if(roboControlState == 3){
-      Serial.println("Controller Stopped");
+      //Serial.println("Controller Stopped");
       roboControl_ = false;
     }
   }
