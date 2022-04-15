@@ -95,19 +95,19 @@ SPI_enc rotary_enc; //Rotary absolute encoder
 // ROS-actuated functions
 
 // Define function for robot homing node
-// NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION 
+// NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION
 void homing(const std_msgs::String& cmd_msg) {
   // Initialize homing state variables
   static bool hometrolley = false;
   static bool homestepper = false;
-  static bool homerot = false; 
+  static bool homerot = false;
 
    // Store input string
   String input = cmd_msg.data;
 
   // Flag trolley homing variable
   if(input.equalsIgnoreCase("trolley") == true) {
-    hometrolley = true;  
+    hometrolley = true;
   }
 
   else if(input.equalsIgnoreCase("stepper") == true) {
@@ -116,7 +116,7 @@ void homing(const std_msgs::String& cmd_msg) {
 
   else if(input.equalsIgnoreCase("rot") == true) {
     homerot = true;
-  }  
+  }
 }
 
 // Define function for receiving and processing target task-space coordinates
@@ -137,7 +137,7 @@ ros::Subscriber<std_msgs::String> home_sub("home", &homing);
 // Node move_sub subscribes to topic "coordinates" and references "movement" function
 ros::Subscriber<std_msgs::String> move_sub("coordinates", &movement);
 
-// Node 
+// Node
 
 //---------------------------------------------------------------------------------------------------
 //Setup Function
@@ -204,7 +204,7 @@ int roboControl(char* coords) {
   double theta_d = atof(strtok(coords, " :,"));
   double d_d = atof(strtok(NULL, " :,"));
   double v_d = atof(strtok(NULL, " :,"));
- 
+
   //Vairable Initialization
   static double elast_theta = 0, elast_d = 0;
   static double eint_theta = 0, eint_d = 0;
@@ -213,7 +213,7 @@ int roboControl(char* coords) {
   double dt = (double)(t - prev_t)*0.001; //Seconds
 
   //Theta
-  double Kp_theta = 250, Ki_theta = 10, Kd_theta = 10;
+  double Kp_theta = 300, Ki_theta = 10, Kd_theta = 10;
   double pwm_theta;
   double e_theta = (theta_d - theta);
   double edot_theta = (e_theta - elast_theta)/(double)(dt);
@@ -221,7 +221,7 @@ int roboControl(char* coords) {
 
   //D
   double Kp_d = 250, Ki_d = 10, Kd_d = 5;
-  static double pwm_d = 0;
+  double pwm_d = 0;
   double e_d = d_d - d;
   double edot_d = (e_d - elast_d)/(double)(dt);
   eint_d = eint_d + elast_d*(double)(dt);
@@ -242,8 +242,8 @@ int roboControl(char* coords) {
     } else {
       //Set PWM_D value
       pwm_theta = -1*(Kp_theta*e_theta + Ki_theta*eint_theta + Kd_theta*edot_theta);
-      pwm_theta = (pwm_theta > 100) ? 100 : pwm_theta; //0-100
-      pwm_theta = (pwm_theta < -100) ? -100 : pwm_theta; //0-100
+      pwm_theta = (pwm_theta > 200) ? 200 : pwm_theta; //0-100
+      pwm_theta = (pwm_theta < -200) ? -200 : pwm_theta; //0-100
       //Set PWM_D values
       elast_theta = e_theta;
       driveRotation(pwm_theta);
@@ -269,7 +269,7 @@ int roboControl(char* coords) {
   } else if(controlMode == 3){
       steps_v = v_d*400/0.009525;
       stepStepper(steps_v);
-      controlMode = 4;
+      controlMode++;
   } else {
       roboControlState = 1;
       controlMode = 1;
@@ -285,7 +285,12 @@ int roboControl(char* coords) {
   Serial.print(", Theta_d: ");
   Serial.println(theta_d);
 
-  return roboControlState;
+  if(roboControlState){
+    return 1;
+    roboControlState = 0;
+  } else {
+    return roboControlState;
+  }
 }
 
 int roboHome(){
@@ -319,6 +324,7 @@ int roboHome(){
         Serial.println("Case 3");
         d_count = 0;
         driveTrolley(0);
+        trolleyMode = 1;
         homeMode++;
       }
     }
@@ -335,7 +341,7 @@ int roboHome(){
         driveStepper(-1000);
         if(digitalRead(P_TROLLEY_SW) == 0){
           driveStepper(0);
-          trolleyMode = 3;
+          stepperMode = 3;
         }
     } else if (stepperMode == 3){
       Serial.println("Case 2");
@@ -349,11 +355,13 @@ int roboHome(){
         v_count = 0;
         driveStepper(0);
         delay(1000);
+        stepperMode = 1;
         homeMode++;
       }
     }
   } else {
     roboHome_ = 1;
+    homeMode = 1;
   }
 
   return roboHome_;
