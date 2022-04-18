@@ -71,15 +71,21 @@ AccelStepper vert(motorInterfaceType, P_VERT_STEP, P_VERT_DIR);
 //Global Variables
 unsigned long t = 0; //local time variable, hopefully won't overflow
 unsigned long prev_t = 0; //previous time, used for derivative controller
+unsigned long prev_t_1s = 0; //used for 1second coord publisher
 double prevSoilTemp = -273; //used to smooth out temp measurements, dont change init
 unsigned long flow_trolley = 0;
 unsigned long flow_box = 0;
+
 
 //Joint Variables
 double theta = 0;
 double d = 0;
 double v = 0;
-
+//target positions
+double theta_d = 0;
+double d_d = 0;
+double v_d = 0;
+  
 //Raw Joint Variables
 int d_count = 0; //count variable for trolley position
 int v_count = 0; //vertical stepper count
@@ -87,9 +93,11 @@ int theta_count = 0; //rotation encoder count
 
 //System Modes
 bool roboControl_ = false;
-bool roboHome_ = false;
+bool homeTrolley_ = false;
+bool homeStepper_ = false;
+bool homeRot_ = false;
 bool HVEC_ = false;
-bool waterPlants_ = false;
+bool hydrate_ = false;
 
 //Digital Sensors
 ADCI2C EE_ADC(0x28); //End-Effector ADC
@@ -103,26 +111,22 @@ SPI_enc rotary_enc; //Rotary absolute encoder
 // NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION 
 void homing(const std_msgs::String& cmd_msg) {
   // Initialize homing state variables
-  static bool hometrolley = false;
-  static bool homestepper = false;
-  static bool homerot = false; 
-
    // Store input string
   String input = cmd_msg.data;
 
   // Flag trolley homing variable
   if(input.equalsIgnoreCase("trolley") == true) {
-    hometrolley = true;  
+    homeTrolley_ = true;  
     // Call trolley homing function
   }
 
   else if(input.equalsIgnoreCase("stepper") == true) {
-    homestepper = true;
+    homeStepper_ = true;
     // Call stepper homing function
   }
 
   else if(input.equalsIgnoreCase("rot") == true) {
-    homerot = true;
+    homeRot_ = true;
     // Call rotational homing function
   }  
 }
@@ -135,41 +139,20 @@ void sense(const std_msgs::String& cmd_msg) {
   if(input.equalsIgnoreCase("moisture") == true) {
     // Call function for reading soil moisture sensor
     readSoilMoist();
-    // Blink onboard LED once
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(200); 
+
   }
 
   else if(input.equalsIgnoreCase("soil_temp") == true) {
     // Call function for reading soil temperature sensor
     readSoilTemp();    
-    // Blink onboard LED twice
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(200);    
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
+
   }
 
   else if(input.equalsIgnoreCase("hvec_temp") == true) {
     // Call function for reading hvec temperature
     readHVECTemp();
-    // Blink LED three times
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(200);    
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(200);
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(200);    
   }
-  digitalWrite(LED_BUILTIN, LOW);
+
 }
 /* NOTE; as of now the pulseHVEC script is always running, introducing several delays*/
 // Define function for receiving integer array of HVEC activation parameters
@@ -182,17 +165,6 @@ int pulseHVEC(const std_msgs::Int16MultiArray& cmd_msg) {
   int offTime = input[1];
   int pulses = input[2];
   
-
-  // Blink onboard LED number of times corresponding to second entry of input for debugging
-  // purposes only
-//  for(int i = 0; i < offTime; i++) {
-    // Blink onboard LED 
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(200);
-  digitalWrite(LED_BUILTIN, LOW);
-//    nh.spinOnce();
-//  }
-
   //Siren
   // Note these delays cause the ROS interface to lose synchronization and drop connection
   tone(P_BUZZER, 1000);
@@ -222,8 +194,27 @@ int pulseHVEC(const std_msgs::Int16MultiArray& cmd_msg) {
   return 1;
 }
 
+// Define function for receiving and processing target task-space coordinates
+//void movement(const std_msgs::String& cmd_msg) {
+void movement(std_msgs::Float64MultiArray& cmd_msg) {
+  // Store entries of data array in separate variables
+  std_msgs::Float64MultiArray coord_array = cmd_msg;
+  theta_d = (double) coord_array.data[0];
+  d_d = (double) coord_array.data[1];
+  v_d = (double) coord_array.data[2];
+
+  // Call robot movement control function to execute motion
+  roboControl_ = true;
+
+//  float coord_data[] = {onTime, offTime, pulses};
+//  coord_array.data = coord_data;
+//  coord_array.data_length = 3;
+//test_pub.publish(&coord_array);   
+}
+
+
 //---------------------------------------------------------------------------------------------------
-// Define ROS subscribers
+// Define Arduino-ROS subscribers
 // Node home_sub subscribes to topic "home" and references "homing" function
 ros::Subscriber<std_msgs::String> home_sub("home", &homing);
 // Node move_sub subscribes to topic "coordinates" and references "movement" function
@@ -232,11 +223,15 @@ ros::Subscriber<std_msgs::Float64MultiArray> move_sub("coordinates", &movement);
 ros::Subscriber<std_msgs::String> sensor_sub("sensor", &sense);
 // Node shock_sub subscribes to topic "shock" and references "pulseHVEC" function
 ros::Subscriber<std_msgs::Int16MultiArray> shock_sub("shock", &pulseHVEC);
+// Node water_sub subscribes to topic "water" and references "waterPlants" function
+ros::Subscriber<std_msgs::UInt16> water_sub("water", &waterPlants);
 
-std_msgs::Float64MultiArray encoder_array, coord_array;
-std_msgs::UInt16 soil_moisture;
+// Define data types used for Arduino publishing to ROS
+std_msgs::Float64MultiArray encoder_array;
+std_msgs::UInt16 soil_moisture, complete;
 std_msgs::Float64 soil_temp, hvec_temp;
 
+// Define Arduino-ROS publishers
 //Node encoder_pub publishes to topic "encoder" and posts encoder_array data
 ros::Publisher encoder_pub("encoder", &encoder_array);
 //Node moisture_pub publishes to topic "moist" and posts soil_moisture data
@@ -244,10 +239,9 @@ ros::Publisher moisture_pub("moist", &soil_moisture);
 //Node temp_pub publishes to topic "temp" and posts soil_temp data
 ros::Publisher temp_pub("temp", &soil_temp);
 // Node hvec_pub publishes to topic "hvec" and posts hvec_temp data
-ros::Publisher hvec_pub("hvec", &hvec_temp);
-
-//// Test Node test_pub publishes to topic "test" and posts coord_array data
-//ros::Publisher test_pub("test", &coord_array);
+//ros::Publisher hvec_pub("hvec", &hvec_temp);
+// Node complete_pub publishes to topic "complete" and posts if command has been completed
+ros::Publisher complete_pub("complete", &complete);
 
 
 void setup(){
@@ -257,6 +251,7 @@ void setup(){
   nh.subscribe(move_sub);
   nh.subscribe(sensor_sub);
   nh.subscribe(shock_sub);
+  nh.subscribe(water_sub);
 
   // Initialize onboard LED
   pinMode(LED_BUILTIN, OUTPUT);
@@ -265,7 +260,7 @@ void setup(){
   nh.advertise(encoder_pub);
   nh.advertise(moisture_pub);
   nh.advertise(temp_pub);  
-  nh.advertise(hvec_pub);
+  nh.advertise(complete_pub);
   //nh.advertise(test_pub);
 
 // Sets interrupt for PCINT0
@@ -311,8 +306,6 @@ void setup(){
   vert.setAcceleration(500);
 
   //Test Variables
-  roboHome_ = true;
-  roboControl_ = true;
 
 }
 
@@ -367,7 +360,7 @@ int stepStepper(int steps){
   }
 }
 
-int robotControl(double theta_d, double d_d, double v_d) {
+int robotControl() {
 //int roboControl(char* coords) {
 
 //  // Parse the coordinates character-array into sections and store relevant variables
@@ -446,39 +439,82 @@ int robotControl(double theta_d, double d_d, double v_d) {
       controlMode = 1;
   }
 
-  //Reference Values
-  //Serial.print("Rotation Position: ");
-  //Serial.print(theta, 4);
-  //Serial.print(", Rotation Error: ");
-  //Serial.print(e_theta);
-  //Serial.print(", Rotation PWM: ");
-  //Serial.print(pwm_theta);
-  //Serial.print(", Theta_d: ");
-  //Serial.println(theta_d);
-
   return roboControlState;
 }
 
-// Define function for receiving and processing target task-space coordinates
-//void movement(const std_msgs::String& cmd_msg) {
-void movement(std_msgs::Float64MultiArray& cmd_msg) {
-  // Receive string input and convert to char array
-//  String input = cmd_msg.data;
-//  char coords[input.length()+1];
-//  input.toCharArray(coords, input.length()+1);
-  coord_array = cmd_msg;
-  double theta_d = (double) coord_array.data[0];
-  double d_d = (double) coord_array.data[1];
-  double v_d = (double) coord_array.data[2];
+int trolleyMode = 1;
 
-  // Call robot movement control function to execute motion
-  robotControl(theta_d, d_d, v_d);
+int homeTrolley() {
+  if(trolleyMode == 1){
+      driveTrolley(-250);
+      if(digitalRead(P_TROLLEY_SW) == 1){
+        //Serial.println("Case 1");
+        driveTrolley(0);
+        trolleyMode = 2;
+      }
 
-//  float coord_data[] = {onTime, offTime, pulses};
-//  coord_array.data = coord_data;
-//  coord_array.data_length = 3;
-//  test_pub.publish(&coord_array);   
+     // Trolley homing, checking for switch to be released
+    } else if (trolleyMode == 2){
+      //Serial.println("Case 2");
+      driveTrolley(250);
+      if(digitalRead(P_TROLLEY_SW) == 0){
+        driveTrolley(0);
+        trolleyMode = 3;
+      }
+
+    // Trolley homing, repress limit switch
+    }else{
+      driveTrolley(-100);
+      if(digitalRead(P_TROLLEY_SW)){
+        //Serial.println("Case 3");
+        d_count = 0;
+        driveTrolley(0);
+        trolleyMode = 1;
+        return 1;     
+      }
+    }
+    return 0;
 }
+
+int stepperMode = 1;
+
+int homeStepper() {
+if(stepperMode == 1){
+      driveStepper(-1500);
+      if(digitalRead(P_VERT_SW) == 1){
+        //Serial.println("Case 1");
+        driveStepper(0);
+        stepperMode = 2;
+      }      
+    // Stepper homing, checking for switch to be released
+    } else if(stepperMode == 2){
+        //Serial.println("Case 2");
+        driveStepper(1000);
+        if(digitalRead(P_TROLLEY_SW) == 0){
+          driveStepper(0);
+          stepperMode = 3;
+        }
+    // Stepper homing, repress limit switch
+    } else if (stepperMode == 3){
+      //Serial.println("Case 2");
+      delay(2000);
+      driveStepper(0);
+      stepperMode = 4;
+    }else{
+      driveStepper(-1000);
+      if(digitalRead(P_VERT_SW)){
+        //Serial.println("Case 3");
+        v_count = 0;
+        driveStepper(0);
+        delay(1000);
+        stepperMode = 1;
+        return 1;
+      }
+    }
+    return 0;
+}
+
+
 
 //------------------------------------------------------------------------------------------------
 // Functions for reading system sensors
@@ -487,10 +523,10 @@ double readRotation()
 {
   uint16_t raw;
   double theta;
-//  raw = rotary_enc.getPos();  //receive number of counts
-//  theta = 2*PI/4095*(double)raw;  //convert counts to degrees
-  // Set theta to 100 for debugging purposes ONLY
-  theta = 100;
+  // NOTE: uncomment once connected to live system
+  raw = rotary_enc.getPos();  //receive number of counts
+  theta = 2*PI/4095*(double)raw;  //convert counts to degrees
+
   return theta;
 }
 
@@ -498,11 +534,10 @@ double readRotation()
 double readVerticalPos(){
   double countsPerRot = 400;
   double dispPerRot = 0.009525;
-  // Return dispPerRot for debugging purposes ONLY
-  return dispPerRot;
 
-  // Return calculated output
-  //return (v_count/countsPerRot)*dispPerRot;
+
+  // Return calculated output, uncomment when connected to live system
+  return (v_count/countsPerRot)*dispPerRot;
   
 }
 
@@ -510,12 +545,11 @@ double readVerticalPos(){
 double readTrolleyPos() {
   double countsPerRot = 2048;
   double wheel_d = 0.02905;
-  // Return wheel_d for debugging purposes ONLY
-  return wheel_d;
+
   
   //Include the initial offset from the center post to the trolley offset 0.2275
-  // Return calculated output
-  //return (d_count/countsPerRot)*(wheel_d*PI);
+  // Return calculated output, uncomment when connected to live system
+  return (d_count/countsPerRot)*(wheel_d*PI);
 }
 
 // Define function for reading soil moisture sensor
@@ -525,7 +559,7 @@ void readSoilMoist()
   int soil_reading = EE_ADC.read(0);
   soil_moisture.data = soil_reading;
   // Set to 50 for debugging purposes only
-  soil_moisture.data = 50;
+  //soil_moisture.data = 50;
   // Publish the reading to ROS topic "moist"
   moisture_pub.publish(&soil_moisture);   
 }
@@ -547,24 +581,19 @@ void readSoilTemp()
    soil_temp.data = float(40);
    // Publish the reading to ROS topic "temp"
    temp_pub.publish(&soil_temp);
-  //Serial Plotter Stuff
-  ////Serial.print("Soil_Temp:");
-  ////Serial.print(soilTemp);
-  ////Serial.print(",");
-  ////Serial.print("Filtered_Soil_Temp:");
-  ////Serial.println(smoothedTemp);
 }
 
 // Define function for reading High-Voltage Elimination Circuit (HVEC) temperature
+// UNUSED AS WE NEVER PUT A THERMISTOR ON IT
 void readHVECTemp()
 {
   // Read the ADC for HVEC temperature and store in ROS-compatible variable
   double hvec_reading = EE_ADC.read(2);
-  hvec_temp.data = float(hvec_reading);
+  //hvec_temp.data = float(hvec_reading);
   // Set to 30 for debugging purposes only
-  hvec_temp.data = float(30);
+  //hvec_temp.data = float(30);
   // Publish the reading to ROS topic 'hvec'
-  hvec_pub.publish(&hvec_temp); 
+  //hvec_pub.publish(&hvec_temp); 
 }
 
 //-----------------------------------------------------------------------------------------------------------------------
@@ -572,7 +601,7 @@ void readHVECTemp()
 
 ISR (PCINT0_vect) // handle pin change interrupt for D8 to D13 here
  {
-  if(digitalRead(P_TROLLEY_FLOW) == 1) {
+  if(hydrate_) {
     flow_trolley++;
   }
   else {
@@ -590,11 +619,32 @@ ISR (PCINT2_vect) // handle pin change interrupt for PCINT16-23
   flow_box++;
  }
 
+// Define function for watering the growing zone
+int waterPlants(unsigned long counts) {
+
+  // Activate the solenoid
+  digitalWrite(P_WATER_SOLE, HIGH);
+
+  // Deactivate solenoid after desired volume has been dispensed
+  if(flow_box >= counts) {
+    digitalWrite(P_WATER_SOLE, LOW);
+    hydrate_ = false;
+    return 1;
+  }
+
+  else {
+    return 0;
+  }
+}
+
+
 //----------------------------------------------------------------------------------------------------
 // Main Loop
 // Negative steps move stepper down
 void loop(){
   //Update encoders
+  t = millis();
+  
   float theta = float(readRotation());
   float d = float(-1*readTrolleyPos()+0.2275);
   float v = float(readVerticalPos());
@@ -606,10 +656,39 @@ void loop(){
   //double encoder_talk.data = [theta, d, v];
   encoder_array.data = location;
   encoder_array.data_length = 3;
+  complete.data = 1;
 
-  // Publish updated encoder values
-  encoder_pub.publish(&encoder_array);
+  // Publish updated encoder values every second
+  if (t - prev_t_1s > 1000) {
+    encoder_pub.publish(&encoder_array);
+    prev_t_1s = t;
+  }
+
   
   nh.spinOnce();
+
+  if(homeTrolley_){
+    if (homeTrolley() == 1) {
+      homeTrolley_ = false;
+      complete_pub.publish(&complete);
+    }
+  }
+  
+  if(homeStepper_){
+    if (homeStepper() == 1) {
+      homeStepper_ = false;
+      complete_pub.publish(&complete);
+    }
+  }
+  
+  if(roboControl_){
+    if (robotControl() == 1) {
+      roboControl_ = false;
+      complete_pub.publish(&complete);
+    }
+  }
+
+  
+  prev_t = t;
   delay(1);
 }

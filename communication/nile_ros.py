@@ -89,8 +89,12 @@ if __name__ == '__main__':
 	temp_sub = rospy.Subscriber('temp', Float64, print_val)
 	# Define ROS subscriber for receiving HVEC temperature measurements
 	# from topic 'hvec'
-	hvec_sub = rospy.Subscriber('hvec', Float64, print_val)
-
+	#hvec_sub = rospy.Subscriber('hvec', Float64, print_val)
+	# Define ROS subscriber for receiving command completeness
+	# from topic 'complete'
+	complete_sub = rospy.Subscriber('complete', UInt16, print_val)
+	
+	
 	rospy.init_node('publisher', anonymous=True)
 	rate = rospy.Rate(10) # Set rate to 10hz
 	rate.sleep()

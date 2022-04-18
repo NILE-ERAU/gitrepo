@@ -8,6 +8,7 @@ import rospy
 import os
 import time
 import subprocess
+import math
 
 # Import libraries for ROS message types
 from std_msgs.msg import Int16MultiArray
@@ -34,14 +35,36 @@ subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 Ts = 5
 t = 0
 last_t = 0
+complete_ = True;
+
 sql.assign_ip()
+
+def publish_web_coords(data):
+	theta = data.data[0]*180/math.pi
+	r = data.data[1]
+	z = data.data[2]
+	time.sleep(0.1)
+
+	sql.publish_pos(theta, r, z);
+
+
+def set_complete_flag(data):
+	complete_ = True
+	sql.complete_command(0,0,0,"Success")
+	time.sleep(0.1)
+	print("Success!")
+	
+
+
+		
+	
 
 def print_val(data):
 	i = 1
 	# print("Encoder readings: {}".format(data))
 
 # Define function for ROS publishing and subscribing based on website inputs
-def ros_website(execute, d0, d1, io):
+def ros_website(execute, theta, r, z, d0, d1, io):
 	
 	# Invoke ROS publisher for topic 'home'
 	if execute == "homeTrolley":
@@ -52,7 +75,11 @@ def ros_website(execute, d0, d1, io):
 		
 	elif execute == "homeRot":
 		home_pub.publish("rot")
-	
+	# Invoke ROS publisher for topic 'movement'	
+	elif execute == "moveTo":
+		print('publisher')
+		move_pub.publish(Float64MultiArray(data=[theta,r,z]))
+		
 	# Invoke ROS publisher for topic 'water'	
 	elif execute == "water":
 		water_pub.publish(d0)
@@ -94,7 +121,7 @@ if __name__ == '__main__':
 	
 	# Define ROS subscriber for receiving joint encoder values from topic
 	# 'encoder'
-	encoder_sub = rospy.Subscriber('encoder', Float64MultiArray, print_val)
+	encoder_sub = rospy.Subscriber('encoder', Float64MultiArray, publish_web_coords)
 	
 	# Define ROS subscriber for receiving soil moisture measurements
 	# from topic 'moist'
@@ -105,9 +132,14 @@ if __name__ == '__main__':
 	temp_sub = rospy.Subscriber('temp', Float64, print_val)
 	# Define ROS subscriber for receiving HVEC temperature measurements
 	# from topic 'hvec'
-	hvec_sub = rospy.Subscriber('hvec', Float64, print_val)
-
+	#hvec_sub = rospy.Subscriber('hvec', Float64, print_val)
+	# Define ROS subscriber for receiving command completeness
+	# from topic 'complete'
+	complete_sub = rospy.Subscriber('complete', UInt16, set_complete_flag)
+	
 	rospy.init_node('publisher', anonymous=True)
+	#rospy.init_node('listener', anonymous=True)
+	#rospy.spin()
 	rate = rospy.Rate(10) # Set rate to 10hz
 	rate.sleep()
 
@@ -119,27 +151,33 @@ if __name__ == '__main__':
 #     # Clean print by writing over previous message
 #     sys.stdout.write(CURSOR_UP)
 #     sys.stdout.write(ERASE_LINE)
-	
+	time.sleep(8)
 	while True:
 		
 		t = time.monotonic()
 		if (t - last_t >= Ts):
 			timetowait = sql.time_until()
 			print(timetowait)
-			if (timetowait >= 0):
+			if (timetowait >= 0 and complete_):
+				time.sleep(0.1)
 				queued = sql.pull_next_command()
-				command = queued[2]
-				theta_q = queued[3]
-				r_q = queued[4]
-				z_q = queued[5]
-				d0_q = queued[6]
-				d1_q = queued[7]
-				i0_q = queued[8]				
+				if (queued[0] == 0):
+					print('SQL Command Retrieve Failure')
+				else:
+					command = queued[2]
+					theta_q = queued[3]*math.pi/180
+					r_q = queued[4]
+					z_q = queued[5]
+					d0_q = queued[6]
+					d1_q = queued[7]
+					i0_q = queued[8]				
 				
-				# Publish the user input to the ROS topic 
-				ros_website(command, d0_q, d1_q, i0_q)
-				sql.complete_command(0,0,0,"Success")
-				print("Success!")
+					# Publish the user input to the ROS topic 
+					print(command)
+					complete_ = False
+					ros_website(command, theta_q, r_q, z_q, d0_q, d1_q, i0_q)
+				
+
 				
 			last_t = t		
 
