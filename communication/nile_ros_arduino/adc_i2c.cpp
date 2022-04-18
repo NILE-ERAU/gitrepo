@@ -30,7 +30,7 @@ double ADCI2C::read(int channel)
   int data = 0;
   if (2 <= Wire.available()) {
     data = Wire.read();
-    data &= 0x7;
+    data &= 0x3;
     data = data << 8;
     data |= Wire.read();
   }

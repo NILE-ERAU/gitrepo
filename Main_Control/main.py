@@ -28,41 +28,39 @@ coord = Float64MultiArray(data=[0, 0, 0])
 hydrate = None
 sense = None
 shock = Int16MultiArray(data=[0, 0, 0])
+sql_busy = False
+Ts = 5
+t = 0
+last_t = 0
+complete_ = True
 
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
 subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 
-Ts = 5
-t = 0
-last_t = 0
-complete_ = True;
-sql_busy = False;
+
+
 
 sql.assign_ip()
 
 def publish_web_coords(data):
+	global sql_busy
 	theta = data.data[0]*180/math.pi
 	r = data.data[1]
 	z = data.data[2]
-    if (not sql_busy):
-        sql_busy = True
-        sql.publish_pos(theta, r, z)
-        sql_busy = False
-
+	if (not sql_busy):
+		sql_busy = True
+		sql.publish_pos(theta, r, z)
+		sql_busy = False
 
 def set_complete_flag(data):
+	global sql_busy
 	complete_ = True
-    while (sql_busy):
-        pass
-    sql_busy = True
+	while (sql_busy):
+		pass
+	sql_busy = True
 	sql.complete_command(0,0,0,"Success")
-    sql_busy = False
+	sql_busy = False
 	print("Success!")
-
-
-
-
-
 
 def print_val(data):
 	i = 1
@@ -161,16 +159,18 @@ if __name__ == '__main__':
 
 		t = time.monotonic()
 		if (t - last_t >= Ts):
-            if (not sql_busy):
-                sql_busy = True
-                timetowait = sql.time_until()
-                sql_busy = False
-                print(timetowait)
+			last_t = t
+
+			if (not sql_busy):
+				sql_busy = True
+				timetowait = sql.time_until()
+				sql_busy = False
+				print(timetowait)
 			if (timetowait >= 0 and complete_ and not sql_busy):
-                sql_busy = True
+				sql_busy = True
 				time.sleep(0.1)
 				queued = sql.pull_next_command()
-                sql_busy = False
+				sql_busy = False
 				if (queued[0] == 0):
 					print('SQL Command Retrieve Failure')
 				else:
@@ -186,10 +186,6 @@ if __name__ == '__main__':
 					print(command)
 					complete_ = False
 					ros_website(command, theta_q, r_q, z_q, d0_q, d1_q, i0_q)
-
-
-
-			last_t = t
 
 		# Request input from user
 		var = str(input("Quit program? (y or n): "))

@@ -94,7 +94,7 @@ int theta_count = 0; //rotation encoder count
 //System Modes
 bool roboControl_ = false;
 bool homeTrolley_ = false;
-bool homeStepper_ = false;
+bool homeStepper_ = true;
 bool homeRot_ = false;
 bool HVEC_ = false;
 bool hydrate_ = false;
