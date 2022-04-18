@@ -1,7 +1,11 @@
 # Test script for initializing and interfacing with a ROS publisher
 # Implementation: python3 ros_talk.py
+<<<<<<< HEAD
 # Invokes roscore, rosnode, and opens additional terminal in virtual
 # environment for running computer vision script
+=======
+# Launches roscore, a serial ros node, and opens an additional terminal within a virtual environment for executing computer vision scripts
+>>>>>>> e5030a6eebf2673c49c3628af8dec9e412bcba62
 import subprocess
 
 # Import ROS libraries

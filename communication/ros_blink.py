@@ -2,6 +2,7 @@
 import rospy
 import os
 import time
+import subprocess
 
 # from std_msgs.msg import UInt16
 # from std_msgs.msg import Float64
@@ -19,6 +20,9 @@ def ros_talker(command):
     pub1.publish(command)
     # Implement delay
     rate.sleep()
+
+# Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
+subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
     
 while True:
     # Request input from user
