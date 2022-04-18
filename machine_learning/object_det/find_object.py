@@ -1,5 +1,5 @@
 # Identify contours within image, and classify individual contours based on LBP texture analysis
-# Implementation: python3 find_object.py -i ~/gitrepo/image_proc/mache5.jpeg
+# Implementation: python3 find_object.py -i ~/gitrepo/image_proc/mache5.JPEG
 # Import the necessary packages
 from texture_class import LocalBinaryPatterns
 import argparse
@@ -90,8 +90,12 @@ if len(contours) > 0:
 			# cropped_images.append(bitwiseAnd[y:y+h, x:x+w])
 			cropped_images.append(bitwiseAnd)
 			
-			# Calculate bounding box centroid and store coordinates
-			mid = (x + w//2, y + h//2)
+			# Calculate bounding box centroid, adjust to be measured 
+			# from the center of the camera frame, and store coordinates
+			# Positive x-values are to the right of frame centroid
+			# Positive y-values are above frame centroid
+			mid = ((x + w//2) - WIDTH//2, HEIGHT//2 - (y + h//2))
+			# mid = (x + w//2, y + h//2)
 			centroids.append(mid)
 
 else:
@@ -121,8 +125,8 @@ segmented = cv2.bitwise_and(resized, resized, mask = masked)
 # Display and print final results
 cv2.imshow("Contours", result)
 cv2.imshow("Color masked", masked)
-cv2.imshow("Segmented Image", segmented)
-cv2.imshow("Original Resized", resized)
+#cv2.imshow("Segmented Image", segmented)
+#cv2.imshow("Original Resized", resized)
 print("Number of plants found: {}".format(len(contours)))
 print("Plant locations: {}".format(centroids))
 print("Classifications: {}".format(classifications))	
@@ -137,4 +141,5 @@ cv2.waitKey(0)
 	# cv2.waitKey(0)	
 	
 cv2.destroyAllWindows()
+
 
