@@ -76,9 +76,9 @@ def time_until():
 		return duration_s
 
 def complete_command(theta, r, z, msg):
-	sql.reconnect()
+
 	result = pull_next_command()
-	#sql.reconnect()
+
 	time.sleep(0.1)
 	cursor.execute("INSERT INTO completed_commands (timestamp_q, command, pos_theta, pos_r, pos_z, pos_theta_q, pos_r_q, pos_z_q, argument_d0, argument_d1, argument_i0, message) VALUES  ("+result[1].strftime("'%Y/%m/%d %H:%M:%S'")+", '"+result[2]+"', "+str(theta)+", "+str(r)+", "+str(z)+", "+str(result[3])+", "+str(result[4])+", "+str(result[5])+", "+str(result[6])+", "+str(result[7])+", "+str(result[8])+", '"+msg+"');")
 	sql.commit()
@@ -91,7 +91,7 @@ def complete_command(theta, r, z, msg):
 
 
 def publish_pos(theta, r, z):
-	sql.reconnect()
+
 	
 	sqlstr = "INSERT INTO robot_status(pos_theta, pos_r, pos_z) VALUES (" + str(theta) + ", " + str(r) + ", " + str(z) + ")"
 	cursor.execute(sqlstr)
@@ -100,7 +100,7 @@ def publish_pos(theta, r, z):
 	return 0
 
 def publish_soil_sample(theta, r, z, moisture, temp):
-	sql.reconnect()
+
 	
 	sqlstr = "INSERT INTO soil_samples(pos_theta, pos_r, pos_z, moisture, temp) VALUES (" + str(theta) + ", " + str(r) + ", " + str(z) + ", " + str(moisture) + ", " + str(temp) +")"
 	cursor.execute(sqlstr)

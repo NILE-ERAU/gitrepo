@@ -32,7 +32,16 @@ sql_busy = False
 Ts = 5
 t = 0
 last_t = 0
+recent_complete = False
 complete_ = True
+temp_flag = False
+moist_flag = False
+theta = 0
+r = 0
+z = 0
+
+temp = 0
+moist = 0
 
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
 subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
@@ -41,26 +50,57 @@ subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 
 
 sql.assign_ip()
-
+time.sleep(8)
 def publish_web_coords(data):
+	global recent_complete
 	global sql_busy
+	global theta
+	global r
+	global z
 	theta = data.data[0]*180/math.pi
 	r = data.data[1]
 	z = data.data[2]
 	if (not sql_busy):
 		sql_busy = True
 		sql.publish_pos(theta, r, z)
+		if (recent_complete):
+			recent_complete = False
+			sql.complete_command(theta,r,z,"Success")
+			print("Success!")
 		sql_busy = False
 
 def set_complete_flag(data):
-	global sql_busy
+	global complete_
+	global recent_complete
 	complete_ = True
-	while (sql_busy):
-		pass
-	sql_busy = True
-	sql.complete_command(0,0,0,"Success")
-	sql_busy = False
-	print("Success!")
+	recent_complete = True
+
+	
+def soil_moist(data):
+	global moist
+	global moist_flag
+	moist = data.data
+	moist_flag = True
+	print(moist)
+	
+	
+def soil_temp(data):
+	global temp
+	global temp_flag
+	temp = data.data
+	temp_flag = True
+	print(temp)
+
+def publish_web_sense():
+	global temp_flag
+	global moist_flag
+	if (temp_flag and moist_flag):
+		temp_flag = False
+		moist_flag = False
+		sql_busy = True
+		sql.publish_soil_sample(theta,r,z,moist,temp)
+		sql_busy = False
+
 
 def print_val(data):
 	i = 1
@@ -92,8 +132,8 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 		hvec_pub(Int16MultiArray(data=[d0, d1, io]))
 
 	elif execute == "senseSoil":
-		sensor_pub.publish("moisture")
-		print("Read moisture sensor")
+		sensor_pub.publish("senseSoil")
+		print("Read moisture and temperature sensor")
 
 	# elif execute == "takeImage":
 		# Capture still image from camera
@@ -128,14 +168,12 @@ if __name__ == '__main__':
 
 	# Define ROS subscriber for receiving soil moisture measurements
 	# from topic 'moist'
-	moist_sub = rospy.Subscriber('moist', UInt16, print_val)
+	moist_sub = rospy.Subscriber('moist', UInt16, soil_moist)
 
 	# Define ROS subscriber for receiving soil temperature measurements
 	# from topic 'temp'
-	temp_sub = rospy.Subscriber('temp', Float64, print_val)
-	# Define ROS subscriber for receiving HVEC temperature measurements
-	# from topic 'hvec'
-	#hvec_sub = rospy.Subscriber('hvec', Float64, print_val)
+	temp_sub = rospy.Subscriber('temp', Float64, soil_temp)
+
 	# Define ROS subscriber for receiving command completeness
 	# from topic 'complete'
 	complete_sub = rospy.Subscriber('complete', UInt16, set_complete_flag)
@@ -154,13 +192,13 @@ if __name__ == '__main__':
 #     # Clean print by writing over previous message
 #     sys.stdout.write(CURSOR_UP)
 #     sys.stdout.write(ERASE_LINE)
-	time.sleep(8)
+	#time.sleep(8)
 	while True:
 
 		t = time.monotonic()
 		if (t - last_t >= Ts):
 			last_t = t
-
+			publish_web_sense()
 			if (not sql_busy):
 				sql_busy = True
 				timetowait = sql.time_until()
@@ -185,17 +223,26 @@ if __name__ == '__main__':
 					# Publish the user input to the ROS topic
 					print(command)
 					complete_ = False
+					if (command == "kill"):
+						sql_busy = True
+						sql.complete_command(theta,r,z,"Success")
+						sql_busy = False
+						os.system("rosnode kill /serial_node")
+						# os.system("killall rosmaster")
+						print("Program terminated by user")
+						break
+					
 					ros_website(command, theta_q, r_q, z_q, d0_q, d1_q, i0_q)
 
 		# Request input from user
-		var = str(input("Quit program? (y or n): "))
+		#var = str(input("Quit program? (y or n): "))
 
 		# Quit the program if the 'q' key is pressed
 		# Need to add call to wait for serial node to finish transmission before killing
-		if var == "y":
+		#if var == "y":
 			# Kill the ROS serial node and allow termination of roscoren
 			# If necessary, kill residual roscore node with terminal vector "kilall rosmaster"
-			os.system("rosnode kill /serial_node")
+		#	os.system("rosnode kill /serial_node")
 	        # os.system("killall rosmaster")
-			print("Program terminated by user")
-			break
+		#	print("Program terminated by user")
+		#	break
