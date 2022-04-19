@@ -63,10 +63,11 @@ ros::NodeHandle nh;
 #define P_FLOW A9 //Fluid box flowmeter, pulses (I had to put this on an ADC pin because i thought i had ran out of interrupt pins)
 
 #define COUNT_PER_LITER 932
+#define MAX_V_HEIGHT 0.34 //thermometer above ground when zeroed
 //-----------------------------------------------------------------------------------------------------------------------
 //Stepper Stuff
 #define motorInterfaceType 1
-AccelStepper vert(motorInterfaceType, P_VERT_STEP, P_VERT_DIR);
+AccelStepper vert(AccelStepper::DRIVER, P_VERT_STEP, P_VERT_DIR);
 //-----------------------------------------------------------------------------------------------------------------------
 //Global Variables
 unsigned long t = 0; //local time variable, hopefully won't overflow
@@ -94,10 +95,11 @@ int theta_count = 0; //rotation encoder count
 //System Modes
 bool roboControl_ = false;
 bool homeTrolley_ = false;
-bool homeStepper_ = false;
+bool homeStepper_ = true;
 bool homeRot_ = false;
 bool HVEC_ = false;
 bool hydrate_ = false;
+bool stepperRunning_ = false;
 
 //Digital Sensors
 ADCI2C EE_ADC(0x28); //End-Effector ADC
@@ -179,7 +181,13 @@ void movement(std_msgs::Float64MultiArray& cmd_msg) {
   std_msgs::Float64MultiArray coord_array = cmd_msg;
   theta_d = (double) coord_array.data[0];
   d_d = (double) coord_array.data[1];
-  v_d = (double) coord_array.data[2];
+  v_d = (double)(MAX_V_HEIGHT-((double) coord_array.data[2]));
+
+  //Safety first! No more robot pushups
+  theta_d = constrain(theta_d,0,2*PI);
+  d_d = constrain(d_d,0,0.85);
+  v_d = constrain(v_d,0,MAX_V_HEIGHT);
+
 
   // Call robot movement control function to execute motion
   roboControl_ = true;
@@ -365,11 +373,12 @@ int driveStepper(double speed_v) {
   if(speed_v == 0){
     vert.stop();
   } else {
-    vert.setSpeed(speed_v);
+    vert.setSpeed((int)speed_v);
     vert.runSpeed();
   }
   return 1;
 }
+
 int stepStepper(int steps){
   vert.moveTo(steps);
   while(vert.distanceToGo()){
@@ -459,10 +468,12 @@ int robotControl() {
       elast_d = e_d;
     }
   } else if(controlMode == 3){
+      stepperRunning_ = true;
       steps_v = v_d*400/0.009525;
       stepStepper(steps_v);
       controlMode = 4;
   } else {
+      stepperRunning_ = false;
       roboControlState = 1;
       controlMode = 1;
   }
@@ -508,7 +519,8 @@ int stepperMode = 1;
 
 int homeStepper() {
 if(stepperMode == 1){
-      driveStepper(-1500);
+      stepperRunning_ = true;
+      driveStepper(1500);
       if(digitalRead(P_VERT_SW) == 1){
         //Serial.println("Case 1");
         driveStepper(0);
@@ -517,7 +529,7 @@ if(stepperMode == 1){
     // Stepper homing, checking for switch to be released
     } else if(stepperMode == 2){
         //Serial.println("Case 2");
-        driveStepper(1000);
+        driveStepper(-1000);
         if(digitalRead(P_TROLLEY_SW) == 0){
           driveStepper(0);
           stepperMode = 3;
@@ -529,13 +541,14 @@ if(stepperMode == 1){
       driveStepper(0);
       stepperMode = 4;
     }else{
-      driveStepper(-1000);
+      driveStepper(1000);
       if(digitalRead(P_VERT_SW)){
         //Serial.println("Case 3");
         v_count = 0;
         driveStepper(0);
         delay(1000);
         stepperMode = 1;
+        stepperRunning_ = false;
         return 1;
       }
     }
@@ -642,13 +655,17 @@ int waterPlants(unsigned long counts) {
 void loop(){
   //Update encoders
   t = millis();
-  
-  theta = (readRotation());
+
+  if (stepperRunning_) {
+    theta = theta;
+  } else {
+    theta = (readRotation());
+  }
   d = (-1*readTrolleyPos()+0.2275);
   v = (readVerticalPos());
   
   //float location[] = {theta, d, v};
-  float location[] = {(float)theta, (float)d, (float)v};
+  float location[] = {(float)theta, (float)d, (float)(MAX_V_HEIGHT-v)};
 
   // Publish joint encoder values to ROS
   //double encoder_talk.data = [theta, d, v];
@@ -657,7 +674,7 @@ void loop(){
   complete.data = 1;
 
   // Publish updated encoder values every second
-  if (t - prev_t_1s > 1000) {
+ if (t - prev_t_1s > 1000) {
     encoder_pub.publish(&encoder_array);
     prev_t_1s = t;
   }
@@ -687,6 +704,7 @@ void loop(){
     }
   }
 
+  
   
   prev_t = t;
   delay(1);
