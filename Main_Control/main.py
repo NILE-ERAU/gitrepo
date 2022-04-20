@@ -126,11 +126,11 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 
 	# Invoke ROS publisher for topic 'water'
 	elif execute == "water":
-		water_pub.publish(d0)
+		water_pub.publish(float(d0))
 
 	# Invoke ROS publisher for topic 'shock'
 	elif execute == "hvec":
-		hvec_pub(Int16MultiArray(data=[d0, d1, io]))
+		hvec_pub.publish(Int16MultiArray(data=[int(d0), int(d1), int(io)]))
 
 	elif execute == "senseSoil":
 		sensor_pub.publish("senseSoil")
@@ -157,7 +157,7 @@ if __name__ == '__main__':
 	sensor_pub = rospy.Publisher('sensor', String, queue_size=10)
 
 	# Define ROS publisher for sending integer data to topic 'water'
-	water_pub = rospy.Publisher('water', UInt16, queue_size=10)
+	water_pub = rospy.Publisher('water', Float64, queue_size=10)
 
 	# Define ROS publisher for sending HVEC activation parameters to
 	# topic 'shock'

@@ -76,7 +76,7 @@ unsigned long prev_t_1s = 0; //used for 1second coord publisher
 double prevSoilTemp = -273; //used to smooth out temp measurements, dont change init
 unsigned long flow_trolley = 0;
 unsigned long flow_box = 0;
-
+unsigned long flow_counts = 0;
 
 //Joint Variables
 double theta = 0;
@@ -91,7 +91,11 @@ double v_d = 0;
 int d_count = 0; //count variable for trolley position
 int v_count = 0; //vertical stepper count
 int theta_count = 0; //rotation encoder count
-
+//HVEC Vars
+int onTime = 0;
+int offTime = 0;
+int pulses = 0;
+unsigned long HVEC_start_t = 0;
 //System Modes
 bool roboControl_ = false;
 bool homeTrolley_ = false;
@@ -111,6 +115,14 @@ SPI_enc rotary_enc; //Rotary absolute encoder
 
 // Define function for robot homing node
 // NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION 
+
+void waterPlants(std_msgs::Float64& cmd_msg){
+  float numLiters = cmd_msg.data;
+  flow_counts = (long)(numLiters * COUNT_PER_LITER);
+  hydrate_ = true;
+  
+}
+
 
 void homing(const std_msgs::String& cmd_msg) {
   // Initialize homing state variables
@@ -140,38 +152,13 @@ void homing(const std_msgs::String& cmd_msg) {
 int pulseHVEC(const std_msgs::Int16MultiArray& cmd_msg) {
   //PERIOD IS DEFINED IN MILLISECONDS
 
-  int input[] = {cmd_msg.data};
-  int onTime = input[0];
-  int offTime = input[1];
-  int pulses = input[2];
-  
-  //Siren
-  // Note these delays cause the ROS interface to lose synchronization and drop connection
-  tone(P_BUZZER, 1000);
-  delay(2000);
-  nh.spinOnce();
-  noTone(P_BUZZER);
-  delay(1000);
-  nh.spinOnce();
+  //int input[] = {cmd_msg.data};
+  onTime = (int)cmd_msg.data[0];
+  offTime = (int)cmd_msg.data[1];
+  pulses = (int)cmd_msg.data[2];
 
-  for (int i = 0; i < pulses; i++) {
-     digitalWrite(P_HVEC, HIGH);
-     delay(onTime);
-     digitalWrite(P_HVEC, LOW);
-     delay(offTime);
-     nh.spinOnce();
-  }
-  //do the little tone
-  digitalWrite(P_HVEC, 0);
-  tone(P_BUZZER, 1046,500);
-  delay(500);
-  tone(P_BUZZER, 1318,500);
-  delay(500);
-  tone(P_BUZZER, 1568,500);
-  delay(500);
-  noTone(P_BUZZER);
-  HVEC_ = false;
-  return 1;
+  HVEC_start_t = millis();
+  HVEC_ = true;
 }
 
 // Define function for receiving and processing target task-space coordinates
@@ -211,7 +198,7 @@ ros::Subscriber<std_msgs::String> sensor_sub("sensor", &sense);
 // Node shock_sub subscribes to topic "shock" and references "pulseHVEC" function
 ros::Subscriber<std_msgs::Int16MultiArray> shock_sub("shock", &pulseHVEC);
 // Node water_sub subscribes to topic "water" and references "waterPlants" function
-ros::Subscriber<std_msgs::UInt16> water_sub("water", &waterPlants);
+ros::Subscriber<std_msgs::Float64> water_sub("water", &waterPlants);
 
 // Define data types used for Arduino publishing to ROS
 std_msgs::Float64MultiArray encoder_array;
@@ -634,13 +621,13 @@ ISR (PCINT2_vect) // handle pin change interrupt for PCINT16-23
  }
 
 // Define function for watering the growing zone
-int waterPlants(unsigned long counts) {
+int runWater() {
 
   // Activate the solenoid
   digitalWrite(P_WATER_SOLE, HIGH);
 
   // Deactivate solenoid after desired volume has been dispensed
-  if(flow_box >= counts) {
+  if(flow_box >= flow_counts) {
     digitalWrite(P_WATER_SOLE, LOW);
     hydrate_ = false;
     return 1;
@@ -651,6 +638,29 @@ int waterPlants(unsigned long counts) {
   }
 }
 
+int runHVEC() {
+  unsigned long HVEC_t = millis() - HVEC_start_t;
+  
+  if (pulses > 0) {
+    if (HVEC_t <= offTime) {
+      digitalWrite(P_HVEC, LOW);
+    } 
+    else if (HVEC_t <= (offTime+onTime)) {
+      digitalWrite(P_HVEC, HIGH);
+    } 
+    else {
+      digitalWrite(P_HVEC, LOW);
+      pulses--;
+      HVEC_start_t = millis();
+    }
+    return 0;
+  }
+  else {
+    digitalWrite(P_HVEC, LOW);
+    return 1;
+  }
+  
+}
 
 //----------------------------------------------------------------------------------------------------
 // Main Loop
@@ -708,6 +718,19 @@ void loop(){
     }
   }
 
+  if(HVEC_){
+    if (runHVEC() == 1) {
+      HVEC_ = false;
+      complete_pub.publish(&complete);
+    }
+  }
+
+  if(hydrate_){
+    if (runWater() == 1) {
+      hydrate_ = false;
+      complete_pub.publish(&complete);
+    }
+  }
   
   
   prev_t = t;
