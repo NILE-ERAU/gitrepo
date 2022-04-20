@@ -65,6 +65,7 @@ def publish_web_coords(data):
 		sql.publish_pos(theta, r, z)
 		if (recent_complete):
 			recent_complete = False
+			comeplete_ = True
 			sql.complete_command(theta,r,z,"Success")
 			print("Success!")
 		sql_busy = False

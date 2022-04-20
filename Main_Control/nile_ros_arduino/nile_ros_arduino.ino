@@ -50,7 +50,7 @@ ros::NodeHandle nh;
 #define P_TROLLEY_PWM_F 5 //Trolley motor "Forward" PWM signal
 #define P_TROLLEY_PWM_B 6 //Trolley motor "Backward" PWM signal
 #define P_VERT_STEP 4 //Vertical stepper step pulse (PWM-enabled)
-#define P_VERT_DIR 24 //Vertical stepper step direction
+#define P_VERT_DIR 31 //Vertical stepper step direction
 #define P_WHEEL_PWM_F 8 //Wheel motor "Forward" PWM signal
 #define P_WHEEL_PWM_B 7 //Wheel motor "Backward" PWM signal
 
@@ -95,7 +95,7 @@ int theta_count = 0; //rotation encoder count
 //System Modes
 bool roboControl_ = false;
 bool homeTrolley_ = false;
-bool homeStepper_ = true;
+bool homeStepper_ = false;
 bool homeRot_ = false;
 bool HVEC_ = false;
 bool hydrate_ = false;
@@ -328,6 +328,7 @@ void setup(){
   EE_ADC.init();
   vert.setMaxSpeed(2000);
   vert.setAcceleration(500);
+  vert.setPinsInverted(true, false, false);
 
   //Test Variables
 
@@ -381,10 +382,12 @@ int driveStepper(double speed_v) {
 
 int stepStepper(int steps){
   vert.moveTo(steps);
+  vert.run();
   while(vert.distanceToGo()){
     vert.run();
-    v_count = v_count + steps;
+    v_count = steps - vert.distanceToGo();
   }
+  vert.stop();
 }
 
 
@@ -458,7 +461,7 @@ int robotControl() {
       //Reset values
       eint_d = 0;
       elast_d = 0;
-      controlMode=4;
+      controlMode=3;
     } else {
       //Set PWM_D value
       pwm_d = Kp_d*e_d + Ki_d*eint_d + Kd_d*edot_d;
@@ -469,8 +472,8 @@ int robotControl() {
     }
   } else if(controlMode == 3){
       stepperRunning_ = true;
-      steps_v = v_d*400/0.009525;
-      stepStepper(steps_v);
+      steps_v = (v_d*400/0.009525);
+      stepStepper((int)steps_v);
       controlMode = 4;
   } else {
       stepperRunning_ = false;
@@ -520,7 +523,7 @@ int stepperMode = 1;
 int homeStepper() {
 if(stepperMode == 1){
       stepperRunning_ = true;
-      driveStepper(1500);
+      driveStepper(-1500);
       if(digitalRead(P_VERT_SW) == 1){
         //Serial.println("Case 1");
         driveStepper(0);
@@ -529,7 +532,7 @@ if(stepperMode == 1){
     // Stepper homing, checking for switch to be released
     } else if(stepperMode == 2){
         //Serial.println("Case 2");
-        driveStepper(-1000);
+        driveStepper(1000);
         if(digitalRead(P_TROLLEY_SW) == 0){
           driveStepper(0);
           stepperMode = 3;
@@ -541,7 +544,7 @@ if(stepperMode == 1){
       driveStepper(0);
       stepperMode = 4;
     }else{
-      driveStepper(1000);
+      driveStepper(-1000);
       if(digitalRead(P_VERT_SW)){
         //Serial.println("Case 3");
         v_count = 0;
@@ -663,7 +666,9 @@ void loop(){
   }
   d = (-1*readTrolleyPos()+0.2275);
   v = (readVerticalPos());
-  
+
+
+
   //float location[] = {theta, d, v};
   float location[] = {(float)theta, (float)d, (float)(MAX_V_HEIGHT-v)};
 
@@ -673,13 +678,12 @@ void loop(){
   encoder_array.data_length = 3;
   complete.data = 1;
 
-  // Publish updated encoder values every second
- if (t - prev_t_1s > 1000) {
+  //Publish updated encoder values every second
+  if (t - prev_t_1s > 1000) {
     encoder_pub.publish(&encoder_array);
     prev_t_1s = t;
   }
 
-  
   
   nh.spinOnce();
 
