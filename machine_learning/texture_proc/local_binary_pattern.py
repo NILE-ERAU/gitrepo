@@ -1,5 +1,6 @@
 # import the necessary packages
 from texture_class import LocalBinaryPatterns
+from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 from imutils import paths
 import argparse
@@ -19,6 +20,18 @@ args = vars(ap.parse_args())
 desc = LocalBinaryPatterns(24, 8)
 data = []
 labels = []
+
+# # Use train_test_split library to automatically splid dataset into
+# # testing and training sub-datasets
+# # Partition the data into training and testing splits using 75% of the 
+# # data for training and the remaining 25% for testing
+# (trainX, testX, trainY, testY) = train_test_split(data, labels, 
+# test_size=0.25, random_state=42)
+
+# #print("Length of trainX; {}".format(len(trainX)))
+# # Convert the labels from integers to vectors
+# trainY = LabelBinarizer().fit_transform(trainY)
+# testY = LabelBinarizer().fit_transform(testY)
 
 # loop over the training images
 for imagePath in paths.list_images(args["training"]):

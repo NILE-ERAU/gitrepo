@@ -12,7 +12,7 @@ args = vars(ap.parse_args())
 if not args.get("image", False):
 
     # If no user-supplied path, load the a preset image
-    image = cv2.imread("/home/pyimagesearch/software/python/camera_test/still_image.jpg")
+    image = cv2.imread("/home/pyimagesearch/gitrepo/camera_test/still_image.jpg")
 
 else:
     # Otherwise, use the user-supplied path
@@ -58,16 +58,16 @@ else:
 
 cv2.putText(result, "Mache", (0, 100), cv2.FONT_HERSHEY_SIMPLEX,
 4.0, (0, 0, 255), 5)	# Display final results
-cv2.imshow("Original", image)
+#cv2.imshow("Original", image)
 cv2.imshow("Contours", result)
-#cv2.imshow("Color Masked", masked)
+cv2.imshow("Color Masked", masked)
 
 #cv2.imwrite("img_proc_blurred.jpeg", blurred)
 #cv2.imwrite("img_proc_hsv.jpeg", hsv)
 ##cv2.imshow("HSV Colorspace", hsv)
 # cv2.imwrite("img_proc_original.png", image)
 # cv2.imwrite("img_proc_HSV.png", hsv)
-# cv2.imwrite("img_proc_Masked.png", masked)
-cv2.imwrite("img_proc_Contours.jpeg", result)
+#cv2.imwrite("img_proc_Masked.png", masked)
+#cv2.imwrite("img_proc_Contours.jpeg", result)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
