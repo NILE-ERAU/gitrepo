@@ -114,7 +114,7 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 	if execute == "homeTrolley":
 		home_pub.publish("trolley")
 
-	elif execute == "homeVert":
+	elif execute == "homeStepper":
 		home_pub.publish("stepper")
 
 	elif execute == "homeRot":

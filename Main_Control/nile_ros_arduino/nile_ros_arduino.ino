@@ -41,7 +41,7 @@ ros::NodeHandle nh;
 
 //Digital Outputs
 #define P_STATUS_LED 2 //Board status LED
-#define P_HVEC 25 //DO NOT TURN ON UNLESS U KNOW WHAT U ARE DOING!!
+#define P_HVEC 30 //DO NOT TURN ON UNLESS U KNOW WHAT U ARE DOING!!
 #define P_WATER_SOLE 27 //Water solenoid
 #define P_FERT_SOLE 26 //Fertilizer solenoid
 #define P_BUZZER 12
@@ -156,6 +156,11 @@ int pulseHVEC(const std_msgs::Int16MultiArray& cmd_msg) {
   onTime = (int)cmd_msg.data[0];
   offTime = (int)cmd_msg.data[1];
   pulses = (int)cmd_msg.data[2];
+
+  onTime = constrain(onTime,2000,10000);
+  offTime = constrain(offTime,2000,60000);
+  pulses = constrain(pulses,0,100);
+
 
   HVEC_start_t = millis();
   HVEC_ = true;
