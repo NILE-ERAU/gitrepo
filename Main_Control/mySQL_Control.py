@@ -109,9 +109,12 @@ def publish_soil_sample(theta, r, z, moisture, temp):
 	return 0
 
 
-def publish_live_image(file):
-    sqlstr = "INSERT INTO camera_images(img, pos_theta, pos_r, pos_z) VALUES (" + str(file) + ", " + str(theta) + ", " + str(r) + ", " + str(z) + ", " + str(moisture) + ", " + str(temp) +")"
-	cursor.execute(sqlstr)
-	sql.commit()
-
+def publish_live_image(img, theta, r, z):
+	sqlstr = "INSERT INTO camera_images(img, pos_theta, pos_r, pos_z) VALUES (%s,%s,%s,%s)"
+	blob_tuple = (img, theta, r, z) 
+	try:
+		result = cursor.execute(sqlstr, blob_tuple)
+		sql.commit()
+	except:
+		print("Image Upload Failed")
 	return 0

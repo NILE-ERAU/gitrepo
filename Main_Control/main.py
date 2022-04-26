@@ -26,6 +26,7 @@ from std_msgs.msg import String
 import mySQL_Control as sql
 import time
 import datetime
+import base64
 
 # Initialize camera parameters
 # Define image size parameters
@@ -61,13 +62,14 @@ hydrate = None
 sense = None
 shock = Int16MultiArray(data=[0, 0, 0])
 sql_busy = False
-Ts = 5
+Ts = 1
 t = 0
 last_t = 0
 recent_complete = False
 complete_ = True
 temp_flag = False
 moist_flag = False
+live_ = False
 theta = 0
 r = 0
 z = 0
@@ -82,23 +84,13 @@ subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 sql.assign_ip()
 time.sleep(8)
 def publish_web_coords(data):
-	global recent_complete
-	global sql_busy
 	global theta
 	global r
 	global z
 	theta = data.data[0]*180/math.pi
 	r = data.data[1]
 	z = data.data[2]
-	if (not sql_busy):
-		sql_busy = True
-		sql.publish_pos(theta, r, z)
-		if (recent_complete):
-			recent_complete = False
-			comeplete_ = True
-			sql.complete_command(theta,r,z,"Success")
-			print("Success!")
-		sql_busy = False
+	
 
 def set_complete_flag(data):
 	global complete_
@@ -139,7 +131,9 @@ def print_val(data):
 
 # Define function for ROS publishing and subscribing based on website inputs
 def ros_website(execute, theta, r, z, d0, d1, io):
-
+	global sql_busy
+	global complete_
+	global recent_complete
 	# Invoke ROS publisher for topic 'home'
 	if execute == "homeTrolley":
 		home_pub.publish("trolley")
@@ -170,8 +164,13 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 	# Capture still image from camera
 	elif execute == "takeImage":
 		# Start streaming with the enumerated parameters
-		pipeline.start(config)
-
+		sql_busy = True
+		profile = pipeline.start(config)
+		
+		sensor_rgb = profile.get_device().query_sensors()[1]
+		sensor_rgb.set_option(rs.option.exposure,200.000)
+		#sensor_rgb.set_option(rs.option.enable_auto_exposure,True)
+		
 		# Wait for a coherent pair of frames: depth and color
 		frames = pipeline.wait_for_frames()
 		color_frame = frames.get_color_frame()
@@ -182,17 +181,26 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 		print("Image saved")
 		pipeline.stop()
 
-        #with open("\home\gitrepo\Main_Control\test_image.jpg", "rb") as image_file:
-        #encoded_string = base64.b64encode(image_file.read())
-        encoded_string = base64.b64encode(color_image)
-        sql_busy = True
-        sql.publish_live_image(encoded_string)
-        sql_busy = False
+		with open("/home/pyimagesearch/gitrepo/Main_Control/test_image.jpg", "rb") as image_file:
+			encoded_string = base64.b64encode(image_file.read())
+		#encoded_string = base64.b64encode(color_image)
+		
+		sql.publish_live_image(encoded_string,theta,r,z)
+		
 		# Re-set appropriate flags
-		global complete_
-		global recent_complete
 		complete_ = True
 		recent_complete = True
+		sql_busy = False
+	elif execute == "goLive":
+		global live_
+		complete_ = True
+		recent_complete = True
+		if (live_):
+			live_ = False
+		else:
+			live_ = True
+		# Start streaming with the enumerated parameters
+		
 
 # Main loop
 if __name__ == '__main__':
@@ -244,9 +252,39 @@ if __name__ == '__main__':
 			publish_web_sense()
 			if (not sql_busy):
 				sql_busy = True
+				if (recent_complete):
+					recent_complete = False
+					comeplete_ = True
+					sql.complete_command(theta,r,z,"Success")
+					print("Success!")
 				timetowait = sql.time_until()
 				sql_busy = False
 				print(timetowait)
+				sql_busy = True
+				sql.publish_pos(theta, r, z)
+				sql_busy = False
+				if (live_):
+					sql_busy = False
+					profile = pipeline.start(config)
+					
+					sensor_rgb = profile.get_device().query_sensors()[1]
+					sensor_rgb.set_option(rs.option.exposure,200.000)
+					#sensor_rgb.set_option(rs.option.enable_auto_exposure,True)
+					
+					# Wait for a coherent pair of frames: depth and color
+					frames = pipeline.wait_for_frames()
+					color_frame = frames.get_color_frame()
+
+					# Convert image to numpy array and save as JPG
+					color_image = np.asanyarray(color_frame.get_data())
+					cv2.imwrite("test_image.jpg", color_image)
+					print("Image saved")
+					pipeline.stop()
+					with open("/home/pyimagesearch/gitrepo/Main_Control/test_image.jpg", "rb") as image_file:
+						encoded_string = base64.b64encode(image_file.read())
+					sql_busy = True
+					sql.publish_live_image(encoded_string,theta,r,z)
+					sql_busy = False
 			if (timetowait >= 0 and complete_ and not sql_busy):
 				sql_busy = True
 				time.sleep(0.1)
