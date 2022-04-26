@@ -83,6 +83,8 @@ subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 
 sql.assign_ip()
 time.sleep(8)
+
+
 def publish_web_coords(data):
 	global theta
 	global r
@@ -97,6 +99,8 @@ def set_complete_flag(data):
 	global recent_complete
 	complete_ = True
 	recent_complete = True
+	print("Complete Flag")
+	print(data.data)
 
 
 def soil_moist(data):
@@ -252,11 +256,6 @@ if __name__ == '__main__':
 			publish_web_sense()
 			if (not sql_busy):
 				sql_busy = True
-				if (recent_complete):
-					recent_complete = False
-					comeplete_ = True
-					sql.complete_command(theta,r,z,"Success")
-					print("Success!")
 				timetowait = sql.time_until()
 				sql_busy = False
 				print(timetowait)
@@ -285,6 +284,11 @@ if __name__ == '__main__':
 					sql_busy = True
 					sql.publish_live_image(encoded_string,theta,r,z)
 					sql_busy = False
+				if (recent_complete):
+					recent_complete = False
+					complete_ = True
+					sql.complete_command(theta,r,z,"Success")
+					print("Success!")
 			if (timetowait >= 0 and complete_ and not sql_busy):
 				sql_busy = True
 				time.sleep(0.1)
