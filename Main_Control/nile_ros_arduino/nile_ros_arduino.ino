@@ -89,7 +89,7 @@ double v_d = 0;
   
 //Raw Joint Variables
 int d_count = 0; //count variable for trolley position
-int v_count = 0; //vertical stepper count
+long v_count = 0; //vertical stepper count
 int theta_count = 0; //rotation encoder count
 //HVEC Vars
 int onTime = 0;
@@ -375,9 +375,8 @@ int driveStepper(double speed_v) {
 int stepStepper(int steps){
   vert.moveTo(steps);
   vert.run();
-  while(vert.distanceToGo()){
+  while(vert.distanceToGo() && !((vert.speed() < 0) && digitalRead(P_VERT_SW))){
     vert.run();
-    v_count = steps - vert.distanceToGo();
   }
   vert.stop();
 }
@@ -511,6 +510,7 @@ int homeTrolley() {
 }
 
 int stepperMode = 1;
+unsigned long stepper_t = 0;
 
 int homeStepper() {
 if(stepperMode == 1){
@@ -525,26 +525,28 @@ if(stepperMode == 1){
     } else if(stepperMode == 2){
         //Serial.println("Case 2");
         driveStepper(1000);
-        if(digitalRead(P_TROLLEY_SW) == 0){
+        if(digitalRead(P_VERT_SW) == 0){
           driveStepper(0);
           stepperMode = 3;
+          stepper_t = millis();
         }
     // Stepper homing, repress limit switch
     } else if (stepperMode == 3){
       //Serial.println("Case 2");
-      delay(2000);
       driveStepper(0);
-      stepperMode = 4;
+      if (millis() - stepper_t > 2000) {
+         stepperMode = 4;
+      }
     }else{
-      driveStepper(-1000);
+      driveStepper(-500);
       if(digitalRead(P_VERT_SW)){
         //Serial.println("Case 3");
-        v_count = 0;
         driveStepper(0);
-        delay(1000);
+        vert.setCurrentPosition(0);
         stepperMode = 1;
         stepperRunning_ = false;
         return 1;
+        
       }
     }
     return 0;
@@ -570,11 +572,12 @@ double readRotation()
 double readVerticalPos(){
   double countsPerRot = 400;
   double dispPerRot = 0.009525;
-
+  double pos = 0.3955;
+  v_count = vert.currentPosition();
+  double vertDisp = (v_count/countsPerRot)*dispPerRot;
 
   // Return calculated output, uncomment when connected to live system
-  return (v_count/countsPerRot)*dispPerRot;
-  
+  return vertDisp;
 }
 
 // Define function for reading trolley encoder value
@@ -681,7 +684,6 @@ void loop(){
   }
   d = (-1*readTrolleyPos()+0.2275);
   v = (readVerticalPos());
-
 
 
   //float location[] = {theta, d, v};

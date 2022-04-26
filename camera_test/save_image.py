@@ -53,7 +53,7 @@ try:
 		# If the user presses 'q', capture a still image from the stream
 		# and save as 'Still_image.jpg"
         if key == ord("q"):
-            cv2.imwrite("Still_image.jpg", color_image)
+            cv2.imwrite("still_image.jpg", color_image)
             print("Image saved, program terminated")
             break
     

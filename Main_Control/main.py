@@ -3,6 +3,11 @@
 # Implementation: python3 main.py
 # Launches roscore, a serial ros node, and opens an additional terminal within a virtual environment for executing computer vision scripts
 
+# Import libraries for RealSense camera
+import pyrealsense2 as rs
+import cv2
+import numpy as np
+
 # Import ROS and OS libraries
 import rospy
 import os
@@ -22,7 +27,34 @@ import mySQL_Control as sql
 import time
 import datetime
 
-# Initialize variables
+# Initialize camera parameters
+# Define image size parameters
+WIDTH = 640
+HEIGHT = 480
+
+# Configure depth and color streams
+pipeline = rs.pipeline()
+config = rs.config()
+
+# Get device product line for setting supported resolutions
+pipeline_wrapper = rs.pipeline_wrapper(pipeline)
+pipeline_profile = config.resolve(pipeline_wrapper)
+device = pipeline_profile.get_device()
+device_product_line = str(device.get_info(rs.camera_info.product_line))
+
+found_rgb = False
+for s in device.sensors:
+    if s.get_info(rs.camera_info.name) == 'RGB Camera':
+        found_rgb = True
+        break
+if not found_rgb:
+    print("No color sensor detected")
+    #exit(0)
+
+# Configure RGB camera input data, rs.format.bgr8 implements 8-bit red, 8-bit green, and 8-bit blue per pixel
+config.enable_stream(rs.stream.color, WIDTH, HEIGHT, rs.format.bgr8, 30)
+
+# Initialize ROS and MySQL variables
 homing = None
 coord = Float64MultiArray(data=[0, 0, 0])
 hydrate = None
@@ -45,8 +77,6 @@ moist = 0
 
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
 subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
-
-
 
 
 sql.assign_ip()
@@ -132,15 +162,31 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 	elif execute == "hvec":
 		hvec_pub.publish(Int16MultiArray(data=[int(d0), int(d1), int(io)]))
 
+	# Invoke ROS publisher for topic 'senseSoil'
 	elif execute == "senseSoil":
 		sensor_pub.publish("senseSoil")
 		print("Read moisture and temperature sensor")
+		
+	# Capture still image from camera
+	elif execute == "takeImage":
+		# Start streaming with the enumerated parameters
+		pipeline.start(config)
 
-	# elif execute == "takeImage":
-		# Capture still image from camera
+		# Wait for a coherent pair of frames: depth and color
+		frames = pipeline.wait_for_frames()
+		color_frame = frames.get_color_frame()
 
-
-
+		# Convert image to numpy array and save as JPG
+		color_image = np.asanyarray(color_frame.get_data())
+		cv2.imwrite("test_image.jpg", color_image)
+		print("Image saved")
+		pipeline.stop()
+		
+		# Re-set appropriate flags
+		global complete_
+		global recent_complete
+		complete_ = True
+		recent_complete = True
 
 # Main loop
 if __name__ == '__main__':
@@ -181,19 +227,9 @@ if __name__ == '__main__':
 
 	rospy.init_node('publisher', anonymous=True)
 	#rospy.init_node('listener', anonymous=True)
-	#rospy.spin()
 	rate = rospy.Rate(10) # Set rate to 10hz
 	rate.sleep()
 
-# Display to ROS console
-#     rospy.get_time()
-#     rospy.loginfo(angle)
-#     rospy.loginfo(position)
-
-#     # Clean print by writing over previous message
-#     sys.stdout.write(CURSOR_UP)
-#     sys.stdout.write(ERASE_LINE)
-	#time.sleep(8)
 	while True:
 
 		t = time.monotonic()
@@ -234,16 +270,3 @@ if __name__ == '__main__':
 						break
 					
 					ros_website(command, theta_q, r_q, z_q, d0_q, d1_q, i0_q)
-
-		# Request input from user
-		#var = str(input("Quit program? (y or n): "))
-
-		# Quit the program if the 'q' key is pressed
-		# Need to add call to wait for serial node to finish transmission before killing
-		#if var == "y":
-			# Kill the ROS serial node and allow termination of roscoren
-			# If necessary, kill residual roscore node with terminal vector "kilall rosmaster"
-		#	os.system("rosnode kill /serial_node")
-	        # os.system("killall rosmaster")
-		#	print("Program terminated by user")
-		#	break
