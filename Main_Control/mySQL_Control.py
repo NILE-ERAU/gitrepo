@@ -33,14 +33,14 @@ def get_ip():
     return IP
 
 def assign_ip():
-	
+
     date_time = datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     #sql.reconnect()
-    
+
     ip = get_ip()
     cursor.execute("INSERT INTO system_info (ip_address) VALUES ('" + str(ip) + "')")
     sql.commit()
-    
+
     return 0
 
 def pull_next_command():
@@ -62,7 +62,7 @@ def pull_next_command():
 		return [0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 
-			
+
 
 def time_until():
 	ct = datetime.datetime.now()
@@ -84,7 +84,7 @@ def complete_command(theta, r, z, msg):
 	sql.commit()
 	cursor.execute("DELETE FROM queued_commands WHERE id="+str(result[0]))
 	sql.commit()
-	
+
 	return 0
 
 
@@ -92,18 +92,26 @@ def complete_command(theta, r, z, msg):
 
 def publish_pos(theta, r, z):
 
-	
+
 	sqlstr = "INSERT INTO robot_status(pos_theta, pos_r, pos_z) VALUES (" + str(theta) + ", " + str(r) + ", " + str(z) + ")"
 	cursor.execute(sqlstr)
 	sql.commit()
-	
+
 	return 0
 
 def publish_soil_sample(theta, r, z, moisture, temp):
 
-	
+
 	sqlstr = "INSERT INTO soil_samples(pos_theta, pos_r, pos_z, moisture, temp) VALUES (" + str(theta) + ", " + str(r) + ", " + str(z) + ", " + str(moisture) + ", " + str(temp) +")"
 	cursor.execute(sqlstr)
 	sql.commit()
-	
+
+	return 0
+
+
+def publish_live_image(file):
+    sqlstr = "INSERT INTO camera_images(img, pos_theta, pos_r, pos_z) VALUES (" + str(file) + ", " + str(theta) + ", " + str(r) + ", " + str(z) + ", " + str(moisture) + ", " + str(temp) +")"
+	cursor.execute(sqlstr)
+	sql.commit()
+
 	return 0

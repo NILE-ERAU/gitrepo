@@ -106,15 +106,15 @@ def set_complete_flag(data):
 	complete_ = True
 	recent_complete = True
 
-	
+
 def soil_moist(data):
 	global moist
 	global moist_flag
 	moist = data.data
 	moist_flag = True
 	print(moist)
-	
-	
+
+
 def soil_temp(data):
 	global temp
 	global temp_flag
@@ -166,7 +166,7 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 	elif execute == "senseSoil":
 		sensor_pub.publish("senseSoil")
 		print("Read moisture and temperature sensor")
-		
+
 	# Capture still image from camera
 	elif execute == "takeImage":
 		# Start streaming with the enumerated parameters
@@ -181,7 +181,13 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 		cv2.imwrite("test_image.jpg", color_image)
 		print("Image saved")
 		pipeline.stop()
-		
+
+        #with open("\home\gitrepo\Main_Control\test_image.jpg", "rb") as image_file:
+        #encoded_string = base64.b64encode(image_file.read())
+        encoded_string = base64.b64encode(color_image)
+        sql_busy = True
+        sql.publish_live_image(encoded_string)
+        sql_busy = False
 		# Re-set appropriate flags
 		global complete_
 		global recent_complete
@@ -268,5 +274,5 @@ if __name__ == '__main__':
 						# os.system("killall rosmaster")
 						print("Program terminated by user")
 						break
-					
+
 					ros_website(command, theta_q, r_q, z_q, d0_q, d1_q, i0_q)
