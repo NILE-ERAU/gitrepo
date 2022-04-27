@@ -1,5 +1,5 @@
 # Usage:
-# python mache_minivggnet.py -d ../dataset/ -m diagnostic_model.hdf5
+# python mache_minivggnet.py -d ../dataset/ -m tuned_model.hdf5
 
 # import the necessary packages
 from sklearn.preprocessing import LabelBinarizer
@@ -32,9 +32,7 @@ print("[INFO] Loading images...")
 imagePaths = list(paths.list_images(args["dataset"]))
 classNames = [pt.split(os.path.sep)[-2] for pt in imagePaths]
 classNames = [str(x) for x in np.unique(classNames)]
-
-# class_count = len(classNames)
-# print("[INFO] Number of classes: {}".format(class_count))
+print("Labels: {}".format(classNames))
 
 # Initialize the image preprocessors
 aap = AspectAwarePreprocessor(64, 64)
@@ -45,7 +43,7 @@ iap = ImageToArrayPreprocessor()
 sdl = SimpleDatasetLoader(preprocessors=[aap, iap])
 (data, labels) = sdl.load(imagePaths, verbose=200)
 data = data.astype("float") / 255.0
-print("[INFO] Number of images in dataset: {}".format(len(labels)))
+#print("[INFO] Number of images in dataset: {}".format(len(labels)))
 
 # Partition the data into training and testing splits using 75% of the 
 # data for training and the remaining 25% for testing
@@ -72,17 +70,17 @@ model = MiniVGGNet.build(width=64, height=64, depth=3,
 model.compile(loss="categorical_crossentropy", optimizer=opt,
 	metrics=["accuracy"])
 
-# train the network over 30 epochs with data augmentation
+# train the network over 40 epochs with data augmentation
 print("[INFO] training network...")
 H = model.fit_generator(aug.flow(trainX, trainY, batch_size=32),
 	validation_data=(testX, testY), steps_per_epoch=len(trainX) // 32,
-	epochs=30, verbose=1)	
+	epochs=35, verbose=1)	
 	
 # train the network without data augmentation	
 # H = model.fit(trainX, trainY, validation_data=(testX, testY),
 	# batch_size=32, epochs=30, verbose=1)
 	
-# Save the network to disk
+# Save the network to disk according to the user-specified name
 print("[INFO] serializing network...")
 model.save(args["model"])
 
@@ -92,18 +90,17 @@ predictions = model.predict(testX, batch_size=32)
 print(classification_report(testY.argmax(axis=1), 
 	predictions.argmax(axis=1), target_names=classNames))
 	
-# print(classification_report(testY.argmax(axis=1), 
-	# predictions.argmax(axis=1), target_names=["mache", "sprout"]))
-
 # Plot the training and validation loss and accuracy
 plt.style.use("ggplot")
 plt.figure()
-plt.plot(np.arange(0, 30), H.history["loss"], label="train_loss")
-plt.plot(np.arange(0, 30), H.history["val_loss"], label="val_loss")
-plt.plot(np.arange(0, 30), H.history["acc"], label="train_acc")
-plt.plot(np.arange(0, 30), H.history["val_acc"], label="val_acc")
+plt.plot(np.arange(0, 35), H.history["loss"], label="training_loss")
+plt.plot(np.arange(0, 35), H.history["val_loss"], label="validation_loss")
+plt.plot(np.arange(0, 35), H.history["acc"], label="training_accuracy")
+plt.plot(np.arange(0, 35), H.history["val_acc"], label="validation_accuracy")
 plt.title("Training Loss and Accuracy")
 plt.xlabel("Epoch #")
-plt.ylabel("Loss/Accuracy")
+plt.ylabel("Loss/Accuracy [percentage]")
 plt.legend()
 plt.show()
+# Save the plot as a JPG
+#plt.save("cnn_training_40_epochs.jpg")

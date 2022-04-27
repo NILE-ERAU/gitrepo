@@ -46,9 +46,6 @@ moist = 0
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
 subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 
-
-
-
 sql.assign_ip()
 time.sleep(8)
 def publish_web_coords(data):

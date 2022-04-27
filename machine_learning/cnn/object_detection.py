@@ -1,5 +1,5 @@
 # USAGE
-# python object_detection.py -i ../test_img/img_test_01.jpg -m diagnostic_model.hdf5 -c 0.8
+# python object_detection.py -i ~/Downloads -m diagnostic_model.hdf5 -c 0.8
 
 # import the necessary packages
 from algorithms.feature_extraction import image_pyramid
@@ -9,19 +9,16 @@ from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
 from imutils.object_detection import non_max_suppression
 import imutils
-import pickle
+from imutils import paths
 import numpy as np
 import argparse
 import time
 import cv2
 
-# from keras.utils import CustomObjectScope
-# from keras.initializers import glorot_uniform
-
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--image", required=True,
-	help="path to the input image")
+	help="path to the input images")
 ap.add_argument("-m", "--model", required=True,
 	help="path to trained CNN model to import")
 ap.add_argument("-c", "--confidence", type=float, default=0.5,
@@ -61,42 +58,62 @@ def resize(original, wide, tall):
 
 
 print("[INFO] loading object detector...")
-
 model = load_model(args["model"])
-orig = cv2.imread(args["image"])
-resized = resize(orig, 64, 64)
-image = img_to_array(resized) / 255.0
-image = np.expand_dims(image, axis=0)
 
-# Predict the bounding box of the object along with the class label
-(labelPreds) = model.predict(image)
-#(startX, startY, endx, endY) = boxPreds[0]
+for imagePath in paths.list_images(args["image"]):
+	orig = cv2.imread(imagePath)
+	#orig = cv2.imread(args["image"])
+	resized = resize(orig, 64, 64)
+	image = img_to_array(resized) / 255.0
+	image = np.expand_dims(image, axis=0)
 
-# determine the class label with largest predicted probability
-pred = np.argmax(labelPreds, axis=1)
-print("Prediction: {}".format(pred))
-#label = lb.classes_[i][0]
+	# Predict the bounding box of the object along with the class label
+	# Note labels may be [dead leaves, sprouts, mache]
+	labels = ['dead leaves', 'mache', 'sprout']
+	(labelPreds) = model.predict(image)
+	print("Raw predictions: {}".format(labelPreds))
+	#print("Top confidence: {}".format(np.argmax(labelPreds)))
 
-# load the input image (in OpenCV format), resize it such that it
-# fits on our screen, and grab its dimensions
-#image = cv2.imread(imagePath)
-#image = imutils.resize(image, width=600)
-#(h, w) = image.shape[:2]
-# scale the predicted bounding box coordinates based on the image
-# dimensions
-# startX = int(startX * w)
-# startY = int(startY * h)
-# endX = int(endX * w)
-# endY = int(endY * h)
-# draw the predicted bounding box and class label on the image
-#y = startY - 10 if startY - 10 > 10 else startY + 10
-cv2.putText(image, pred, (10,10), cv2.FONT_HERSHEY_SIMPLEX,
-	0.65, (0, 255, 0), 2)
-# cv2.rectangle(image, (startX, startY), (endX, endY),
-	# (0, 255, 0), 2)
-# show the output image
-cv2.imshow("Output", image)
-cv2.waitKey(0)
+	# determine the class label with largest predicted probability
+	#if np.argmax(labelPreds) > args["confidence"]: 
+	pred = labels[np.argmax(labelPreds)]
+	#pred = np.argmax(labelPreds, axis=1)
+	#print("Prediction: {}".format(pred))
+	#label = lb.classes_[i][0]
+
+	# load the input image (in OpenCV format), resize it such that it
+	# fits on our screen, and grab its dimensions
+	#image = cv2.imread(imagePath)
+	#image = imutils.resize(image, width=600)
+	#(h, w) = image.shape[:2]
+	# scale the predicted bounding box coordinates based on the image
+	# dimensions
+	# startX = int(startX * w)
+	# startY = int(startY * h)
+	# endX = int(endX * w)
+	# endY = int(endY * h)
+	# draw the predicted bounding box and class label on the image
+	#y = startY - 10 if startY - 10 > 10 else startY + 10
+	output = resize(orig, 256, 256)
+	cv2.putText(output, pred, (10,20), cv2.FONT_HERSHEY_SIMPLEX,
+		0.65, (255, 255, 0), 2)
+	# cv2.rectangle(image, (startX, startY), (endX, endY),
+		# (0, 255, 0), 2)
+	# show the output image
+	cv2.imshow("Output", output)
+	cv2.waitKey(0)
+		
+	# else: 
+		# print("Top prediction: {}".format(np.argmax(labelPreds)))
+		# output = resize(orig, 256, 256)
+		# cv2.putText(output, "Low Confidence", (10,20), cv2.FONT_HERSHEY_SIMPLEX,
+			# 0.65, (255, 255, 0), 2)
+		# # cv2.rectangle(image, (startX, startY), (endX, endY),
+			# # (0, 255, 0), 2)
+		# # show the output image
+		# cv2.imshow("Output", output)
+		# cv2.waitKey(0)	
+	
 
 # # initialize variables used for the object detection procedure
 # #INPUT_SIZE = (350, 350)
