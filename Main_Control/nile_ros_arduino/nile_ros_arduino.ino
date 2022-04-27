@@ -86,10 +86,10 @@ double v = 0;
 double theta_d = 0;
 double d_d = 0;
 double v_d = 0;
-  
+
 //Raw Joint Variables
 int d_count = 0; //count variable for trolley position
-int v_count = 0; //vertical stepper count
+long v_count = 0; //vertical stepper count
 int theta_count = 0; //rotation encoder count
 //HVEC Vars
 int onTime = 0;
@@ -114,13 +114,13 @@ SPI_enc rotary_enc; //Rotary absolute encoder
 // ROS-actuated functions
 
 // Define function for robot homing node
-// NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION 
+// NOTE: NEED TO REWRITE HOMING INTERFACE FUNCTION
 
 void waterPlants(std_msgs::Float64& cmd_msg){
   float numLiters = cmd_msg.data;
   flow_counts = (long)(numLiters * COUNT_PER_LITER);
   hydrate_ = true;
-  
+
 }
 
 
@@ -131,7 +131,7 @@ void homing(const std_msgs::String& cmd_msg) {
 
   // Flag trolley homing variable
   if(input.equalsIgnoreCase("trolley") == true) {
-    homeTrolley_ = true;  
+    homeTrolley_ = true;
     // Call trolley homing function
   }
 
@@ -143,7 +143,7 @@ void homing(const std_msgs::String& cmd_msg) {
   else if(input.equalsIgnoreCase("rot") == true) {
     homeRot_ = true;
     // Call rotational homing function
-  }  
+  }
 }
 
 /* NOTE; as of now the pulseHVEC script is always running, introducing several delays*/
@@ -187,7 +187,7 @@ void movement(std_msgs::Float64MultiArray& cmd_msg) {
 //  float coord_data[] = {onTime, offTime, pulses};
 //  coord_array.data = coord_data;
 //  coord_array.data_length = 3;
-//test_pub.publish(&coord_array);   
+//test_pub.publish(&coord_array);
 }
 
 void sense(const std_msgs::String& cmd_msg);
@@ -230,7 +230,7 @@ void readSoilMoist()
   // Set to 50 for debugging purposes only
   //soil_moisture.data = 50;
   // Publish the reading to ROS topic "moist"
-  moisture_pub.publish(&soil_moisture);   
+  moisture_pub.publish(&soil_moisture);
 }
 
 // Define function for reading soil temperature sensor
@@ -275,7 +275,7 @@ void setup(){
   //Define Arduino ROS publishers
   nh.advertise(encoder_pub);
   nh.advertise(moisture_pub);
-  nh.advertise(temp_pub);  
+  nh.advertise(temp_pub);
   nh.advertise(complete_pub);
   //nh.advertise(test_pub);
 
@@ -375,9 +375,8 @@ int driveStepper(double speed_v) {
 int stepStepper(int steps){
   vert.moveTo(steps);
   vert.run();
-  while(vert.distanceToGo()){
+  while(vert.distanceToGo() && !((vert.speed() < 0) && digitalRead(P_VERT_SW))){
     vert.run();
-    v_count = steps - vert.distanceToGo();
   }
   vert.stop();
 }
@@ -436,10 +435,10 @@ int robotControl() {
       }
       else {
         pwm_sign = -1;
-      }   
+      }
       pwm_theta = constrain(abs(pwm_theta), 75, 250);
       pwm_theta = pwm_theta*pwm_sign;
-      
+
       //Set PWM_D values
       elast_theta = e_theta;
       driveRotation(pwm_theta);
@@ -504,13 +503,14 @@ int homeTrolley() {
         d_count = 0;
         driveTrolley(0);
         trolleyMode = 1;
-        return 1;     
+        return 1;
       }
     }
     return 0;
 }
 
 int stepperMode = 1;
+unsigned long stepper_t = 0;
 
 int homeStepper() {
 if(stepperMode == 1){
@@ -520,31 +520,33 @@ if(stepperMode == 1){
         //Serial.println("Case 1");
         driveStepper(0);
         stepperMode = 2;
-      }      
+      }
     // Stepper homing, checking for switch to be released
     } else if(stepperMode == 2){
         //Serial.println("Case 2");
         driveStepper(1000);
-        if(digitalRead(P_TROLLEY_SW) == 0){
+        if(digitalRead(P_VERT_SW) == 0){
           driveStepper(0);
           stepperMode = 3;
+          stepper_t = millis();
         }
     // Stepper homing, repress limit switch
     } else if (stepperMode == 3){
       //Serial.println("Case 2");
-      delay(2000);
       driveStepper(0);
-      stepperMode = 4;
+      if (millis() - stepper_t > 2000) {
+         stepperMode = 4;
+      }
     }else{
-      driveStepper(-1000);
+      driveStepper(-500);
       if(digitalRead(P_VERT_SW)){
         //Serial.println("Case 3");
-        v_count = 0;
         driveStepper(0);
-        delay(1000);
+        vert.setCurrentPosition(0);
         stepperMode = 1;
         stepperRunning_ = false;
         return 1;
+        
       }
     }
     return 0;
@@ -570,11 +572,22 @@ double readRotation()
 double readVerticalPos(){
   double countsPerRot = 400;
   double dispPerRot = 0.009525;
-
+<<<<<<< HEAD
+  double pos = 0.3955;
+  v_count = vert.currentPosition();
+  double vertDisp = (v_count/countsPerRot)*dispPerRot;
 
   // Return calculated output, uncomment when connected to live system
-  return (v_count/countsPerRot)*dispPerRot;
+  return vertDisp;
+=======
+  double pos = 0.3955; //m
+  double vertDisp = (v_count/countsPerRot)*dispPerRot; //displacement down from 0
+
+  // Return calculated output, uncomment when connected to live system
+  // Returns the distance from frame 3 to the ground
+  return offset-vertDisp;
   
+>>>>>>> 6121c8473da479bab44fb09f3022fa75d79f5cf1
 }
 
 // Define function for reading trolley encoder value
@@ -582,7 +595,7 @@ double readTrolleyPos() {
   double countsPerRot = 2048;
   double wheel_d = 0.02905;
 
-  
+
   //Include the initial offset from the center post to the trolley offset 0.2275
   // Return calculated output, uncomment when connected to live system
   return (d_count/countsPerRot)*(wheel_d*PI);
@@ -599,7 +612,7 @@ void readHVECTemp()
   // Set to 30 for debugging purposes only
   //hvec_temp.data = float(30);
   // Publish the reading to ROS topic 'hvec'
-  //hvec_pub.publish(&hvec_temp); 
+  //hvec_pub.publish(&hvec_temp);
 }
 
 //-----------------------------------------------------------------------------------------------------------------------
@@ -645,14 +658,14 @@ int runWater() {
 
 int runHVEC() {
   unsigned long HVEC_t = millis() - HVEC_start_t;
-  
+
   if (pulses > 0) {
     if (HVEC_t <= offTime) {
       digitalWrite(P_HVEC, LOW);
-    } 
+    }
     else if (HVEC_t <= (offTime+onTime)) {
       digitalWrite(P_HVEC, HIGH);
-    } 
+    }
     else {
       digitalWrite(P_HVEC, LOW);
       pulses--;
@@ -664,7 +677,7 @@ int runHVEC() {
     digitalWrite(P_HVEC, LOW);
     return 1;
   }
-  
+
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -683,7 +696,6 @@ void loop(){
   v = (readVerticalPos());
 
 
-
   //float location[] = {theta, d, v};
   float location[] = {(float)theta, (float)d, (float)(MAX_V_HEIGHT-v)};
 
@@ -699,7 +711,7 @@ void loop(){
     prev_t_1s = t;
   }
 
-  
+
   nh.spinOnce();
 
   if(homeTrolley_){
@@ -708,14 +720,14 @@ void loop(){
       complete_pub.publish(&complete);
     }
   }
-  
+
   if(homeStepper_){
     if (homeStepper() == 1) {
       homeStepper_ = false;
       complete_pub.publish(&complete);
     }
   }
-  
+
   if(roboControl_){
     if (robotControl() == 1) {
       roboControl_ = false;
@@ -736,8 +748,8 @@ void loop(){
       complete_pub.publish(&complete);
     }
   }
-  
-  
+
+
   prev_t = t;
   delay(1);
 }

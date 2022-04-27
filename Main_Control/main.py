@@ -3,6 +3,11 @@
 # Implementation: python3 main.py
 # Launches roscore, a serial ros node, and opens an additional terminal within a virtual environment for executing computer vision scripts
 
+# Import libraries for RealSense camera
+import pyrealsense2 as rs
+import cv2
+import numpy as np
+
 # Import ROS and OS libraries
 import rospy
 import os
@@ -21,21 +26,50 @@ from std_msgs.msg import String
 import mySQL_Control as sql
 import time
 import datetime
+import base64
 
-# Initialize variables
+# Initialize camera parameters
+# Define image size parameters
+WIDTH = 640
+HEIGHT = 480
+
+# Configure depth and color streams
+pipeline = rs.pipeline()
+config = rs.config()
+
+# Get device product line for setting supported resolutions
+pipeline_wrapper = rs.pipeline_wrapper(pipeline)
+pipeline_profile = config.resolve(pipeline_wrapper)
+device = pipeline_profile.get_device()
+device_product_line = str(device.get_info(rs.camera_info.product_line))
+
+found_rgb = False
+for s in device.sensors:
+    if s.get_info(rs.camera_info.name) == 'RGB Camera':
+        found_rgb = True
+        break
+if not found_rgb:
+    print("No color sensor detected")
+    #exit(0)
+
+# Configure RGB camera input data, rs.format.bgr8 implements 8-bit red, 8-bit green, and 8-bit blue per pixel
+config.enable_stream(rs.stream.color, WIDTH, HEIGHT, rs.format.bgr8, 30)
+
+# Initialize ROS and MySQL variables
 homing = None
 coord = Float64MultiArray(data=[0, 0, 0])
 hydrate = None
 sense = None
 shock = Int16MultiArray(data=[0, 0, 0])
 sql_busy = False
-Ts = 5
+Ts = 1
 t = 0
 last_t = 0
 recent_complete = False
 complete_ = True
 temp_flag = False
 moist_flag = False
+live_ = False
 theta = 0
 r = 0
 z = 0
@@ -46,42 +80,40 @@ moist = 0
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
 subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 6f96d9d4c97d6077644bf26b61a444a97e12add5
 sql.assign_ip()
 time.sleep(8)
+
+
 def publish_web_coords(data):
-	global recent_complete
-	global sql_busy
 	global theta
 	global r
 	global z
 	theta = data.data[0]*180/math.pi
 	r = data.data[1]
 	z = data.data[2]
-	if (not sql_busy):
-		sql_busy = True
-		sql.publish_pos(theta, r, z)
-		if (recent_complete):
-			recent_complete = False
-			comeplete_ = True
-			sql.complete_command(theta,r,z,"Success")
-			print("Success!")
-		sql_busy = False
+	
 
 def set_complete_flag(data):
 	global complete_
 	global recent_complete
 	complete_ = True
 	recent_complete = True
+	print("Complete Flag")
+	print(data.data)
 
-	
+
 def soil_moist(data):
 	global moist
 	global moist_flag
 	moist = data.data
 	moist_flag = True
 	print(moist)
-	
-	
+
+
 def soil_temp(data):
 	global temp
 	global temp_flag
@@ -106,7 +138,9 @@ def print_val(data):
 
 # Define function for ROS publishing and subscribing based on website inputs
 def ros_website(execute, theta, r, z, d0, d1, io):
-
+	global sql_busy
+	global complete_
+	global recent_complete
 	# Invoke ROS publisher for topic 'home'
 	if execute == "homeTrolley":
 		home_pub.publish("trolley")
@@ -129,15 +163,51 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 	elif execute == "hvec":
 		hvec_pub.publish(Int16MultiArray(data=[int(d0), int(d1), int(io)]))
 
+	# Invoke ROS publisher for topic 'senseSoil'
 	elif execute == "senseSoil":
 		sensor_pub.publish("senseSoil")
 		print("Read moisture and temperature sensor")
 
-	# elif execute == "takeImage":
-		# Capture still image from camera
+	# Capture still image from camera
+	elif execute == "takeImage":
+		# Start streaming with the enumerated parameters
+		sql_busy = True
+		profile = pipeline.start(config)
+		
+		sensor_rgb = profile.get_device().query_sensors()[1]
+		sensor_rgb.set_option(rs.option.exposure,200.000)
+		#sensor_rgb.set_option(rs.option.enable_auto_exposure,True)
+		
+		# Wait for a coherent pair of frames: depth and color
+		frames = pipeline.wait_for_frames()
+		color_frame = frames.get_color_frame()
 
+		# Convert image to numpy array and save as JPG
+		color_image = np.asanyarray(color_frame.get_data())
+		cv2.imwrite("test_image.jpg", color_image)
+		print("Image saved")
+		pipeline.stop()
 
-
+		with open("/home/pyimagesearch/gitrepo/Main_Control/test_image.jpg", "rb") as image_file:
+			encoded_string = base64.b64encode(image_file.read())
+		#encoded_string = base64.b64encode(color_image)
+		
+		sql.publish_live_image(encoded_string,theta,r,z)
+		
+		# Re-set appropriate flags
+		complete_ = True
+		recent_complete = True
+		sql_busy = False
+	elif execute == "goLive":
+		global live_
+		complete_ = True
+		recent_complete = True
+		if (live_):
+			live_ = False
+		else:
+			live_ = True
+		# Start streaming with the enumerated parameters
+		
 
 # Main loop
 if __name__ == '__main__':
@@ -178,19 +248,9 @@ if __name__ == '__main__':
 
 	rospy.init_node('publisher', anonymous=True)
 	#rospy.init_node('listener', anonymous=True)
-	#rospy.spin()
 	rate = rospy.Rate(10) # Set rate to 10hz
 	rate.sleep()
 
-# Display to ROS console
-#     rospy.get_time()
-#     rospy.loginfo(angle)
-#     rospy.loginfo(position)
-
-#     # Clean print by writing over previous message
-#     sys.stdout.write(CURSOR_UP)
-#     sys.stdout.write(ERASE_LINE)
-	#time.sleep(8)
 	while True:
 
 		t = time.monotonic()
@@ -202,6 +262,36 @@ if __name__ == '__main__':
 				timetowait = sql.time_until()
 				sql_busy = False
 				print(timetowait)
+				sql_busy = True
+				sql.publish_pos(theta, r, z)
+				sql_busy = False
+				if (live_):
+					sql_busy = False
+					profile = pipeline.start(config)
+					
+					sensor_rgb = profile.get_device().query_sensors()[1]
+					sensor_rgb.set_option(rs.option.exposure,200.000)
+					#sensor_rgb.set_option(rs.option.enable_auto_exposure,True)
+					
+					# Wait for a coherent pair of frames: depth and color
+					frames = pipeline.wait_for_frames()
+					color_frame = frames.get_color_frame()
+
+					# Convert image to numpy array and save as JPG
+					color_image = np.asanyarray(color_frame.get_data())
+					cv2.imwrite("test_image.jpg", color_image)
+					print("Image saved")
+					pipeline.stop()
+					with open("/home/pyimagesearch/gitrepo/Main_Control/test_image.jpg", "rb") as image_file:
+						encoded_string = base64.b64encode(image_file.read())
+					sql_busy = True
+					sql.publish_live_image(encoded_string,theta,r,z)
+					sql_busy = False
+				if (recent_complete):
+					recent_complete = False
+					complete_ = True
+					sql.complete_command(theta,r,z,"Success")
+					print("Success!")
 			if (timetowait >= 0 and complete_ and not sql_busy):
 				sql_busy = True
 				time.sleep(0.1)
@@ -229,18 +319,5 @@ if __name__ == '__main__':
 						# os.system("killall rosmaster")
 						print("Program terminated by user")
 						break
-					
+
 					ros_website(command, theta_q, r_q, z_q, d0_q, d1_q, i0_q)
-
-		# Request input from user
-		#var = str(input("Quit program? (y or n): "))
-
-		# Quit the program if the 'q' key is pressed
-		# Need to add call to wait for serial node to finish transmission before killing
-		#if var == "y":
-			# Kill the ROS serial node and allow termination of roscoren
-			# If necessary, kill residual roscore node with terminal vector "kilall rosmaster"
-		#	os.system("rosnode kill /serial_node")
-	        # os.system("killall rosmaster")
-		#	print("Program terminated by user")
-		#	break
