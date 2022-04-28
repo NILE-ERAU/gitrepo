@@ -63,7 +63,7 @@ ros::NodeHandle nh;
 #define P_FLOW A9 //Fluid box flowmeter, pulses (I had to put this on an ADC pin because i thought i had ran out of interrupt pins)
 
 #define COUNT_PER_LITER 932
-#define MAX_V_HEIGHT 0.3955 //thermometer above ground when zeroed
+#define MAX_V_HEIGHT 0.3955 //Frame 3 above ground when zeroed
 //-----------------------------------------------------------------------------------------------------------------------
 //Stepper Stuff
 #define motorInterfaceType 1
