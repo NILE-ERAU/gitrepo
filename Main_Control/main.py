@@ -3,14 +3,18 @@
 # Implementation: python3 main.py
 # Launches roscore, a serial ros node, and opens an additional terminal within a virtual environment for executing computer vision scripts
 
+import os
+
+
 # Import libraries for RealSense camera
+print('REALSENSE LIBS')
 import pyrealsense2 as rs
 import cv2
 import numpy as np
 
 # Import ROS and OS libraries
+print('ROS LIBS')
 import rospy
-import os
 import time
 import subprocess
 import math
@@ -22,17 +26,22 @@ from std_msgs.msg import Float64MultiArray
 from std_msgs.msg import Float64
 from std_msgs.msg import String
 
+print('SQL LIBS')
 # Import libraries for mySQL website interfacing
 import mySQL_Control as sql
 import time
 import datetime
 import base64
 
+#ros_start
+#time.sleep(20)
+
 # Initialize camera parameters
 # Define image size parameters
 WIDTH = 640
 HEIGHT = 480
 
+print("Camera Stuff")
 # Configure depth and color streams
 pipeline = rs.pipeline()
 config = rs.config()
@@ -42,6 +51,7 @@ pipeline_wrapper = rs.pipeline_wrapper(pipeline)
 pipeline_profile = config.resolve(pipeline_wrapper)
 device = pipeline_profile.get_device()
 device_product_line = str(device.get_info(rs.camera_info.product_line))
+print("After pipeline")
 
 found_rgb = False
 for s in device.sensors:
@@ -54,7 +64,7 @@ if not found_rgb:
 
 # Configure RGB camera input data, rs.format.bgr8 implements 8-bit red, 8-bit green, and 8-bit blue per pixel
 config.enable_stream(rs.stream.color, WIDTH, HEIGHT, rs.format.bgr8, 30)
-
+print("Enable Stream")
 # Initialize ROS and MySQL variables
 homing = None
 coord = Float64MultiArray(data=[0, 0, 0])
@@ -77,10 +87,15 @@ z = 0
 temp = 0
 moist = 0
 
+print("ROS Subroutine")
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
-subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
-
-
+time.sleep(2)
+#subprocess.call(["python3", "/home/pyimagesearch/gitrepo/Main_Control/ros_start.py"])
+#subprocess.call(["lxterm", "-e","/usr/bin/python3", "/home/pyimagesearch/gitrepo/Main_Control/ros_start.py"])
+#subprocess.call(["lxterm", "-e","/opt/ros/melodic/bin/roscore"])
+subprocess.call(["gnome-terminal", "--","python3", "/home/pyimagesearch/gitrepo/Main_Control/ros_start.py"])
+time.sleep(2)
+print("SQL IP")
 sql.assign_ip()
 time.sleep(8)
 
@@ -209,7 +224,7 @@ def ros_website(execute, theta, r, z, d0, d1, io):
 # Main loop
 if __name__ == '__main__':
 
-    # Initialize ROS publishers and subscribers
+	# Initialize ROS publishers and subscribers
 	# Define ROS publisher for sending string data to topic 'home'
 	home_pub = rospy.Publisher('home', String, queue_size=10)
 
@@ -243,7 +258,9 @@ if __name__ == '__main__':
 	# from topic 'complete'
 	complete_sub = rospy.Subscriber('complete', UInt16, set_complete_flag)
 
+
 	rospy.init_node('publisher', anonymous=True)
+
 	#rospy.init_node('listener', anonymous=True)
 	rate = rospy.Rate(10) # Set rate to 10hz
 	rate.sleep()
@@ -291,7 +308,6 @@ if __name__ == '__main__':
 					print("Success!")
 			if (timetowait >= 0 and complete_ and not sql_busy):
 				sql_busy = True
-				time.sleep(0.1)
 				queued = sql.pull_next_command()
 				sql_busy = False
 				if (queued[0] == 0):

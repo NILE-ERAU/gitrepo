@@ -5,7 +5,7 @@ import os
 #subprocess.call(["gnome-terminal", "--","python3", "virtualenv_start.py"])
 
 # Launch ROS master node 'roscore'
-roscore = subprocess.Popen('roscore')
-
+roscore = subprocess.Popen('/opt/ros/melodic/bin/roscore')
+#os.system('/opt/ros/melodic/bin/roscore -v')
 # Launch rosserial node
-os.system("rosrun rosserial_python serial_node.py /dev/ttyACM0")
+os.system("/opt/ros/melodic/bin/rosrun rosserial_python serial_node.py /dev/ttyACM0")
