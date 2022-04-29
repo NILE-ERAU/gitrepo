@@ -63,7 +63,7 @@ ros::NodeHandle nh;
 #define P_FLOW A9 //Fluid box flowmeter, pulses (I had to put this on an ADC pin because i thought i had ran out of interrupt pins)
 
 #define COUNT_PER_LITER 932
-#define MAX_V_HEIGHT 0.34 //thermometer above ground when zeroed
+#define MAX_V_HEIGHT 0.3955 //Frame 3 above ground when zeroed
 //-----------------------------------------------------------------------------------------------------------------------
 //Stepper Stuff
 #define motorInterfaceType 1
@@ -463,7 +463,7 @@ int robotControl() {
     }
   } else if(controlMode == 3){
       stepperRunning_ = true;
-      steps_v = (v_d*400/0.009525);
+      steps_v = ((MAX_V_HEIGHT - v_d)*400/0.01905);
       stepStepper((int)steps_v);
       controlMode = 4;
   } else {
@@ -571,23 +571,12 @@ double readRotation()
 // Define function for reading vertical translational joint encoder value (stepper motor)
 double readVerticalPos(){
   double countsPerRot = 400;
-  double dispPerRot = 0.009525;
-<<<<<<< HEAD
-  double pos = 0.3955;
+  double dispPerRot = 0.01905;
   v_count = vert.currentPosition();
   double vertDisp = (v_count/countsPerRot)*dispPerRot;
 
   // Return calculated output, uncomment when connected to live system
   return vertDisp;
-=======
-  double pos = 0.3955; //m
-  double vertDisp = (v_count/countsPerRot)*dispPerRot; //displacement down from 0
-
-  // Return calculated output, uncomment when connected to live system
-  // Returns the distance from frame 3 to the ground
-  return offset-vertDisp;
-  
->>>>>>> 6121c8473da479bab44fb09f3022fa75d79f5cf1
 }
 
 // Define function for reading trolley encoder value

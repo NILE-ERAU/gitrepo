@@ -1,3 +1,6 @@
+# Usage:
+# python mache_minivggnet.py -d ../dataset/ -m tuned_model.hdf5
+
 # import the necessary packages
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
@@ -5,8 +8,7 @@ from sklearn.metrics import classification_report
 from algorithms import ImageToArrayPreprocessor
 from algorithms import AspectAwarePreprocessor
 from algorithms import SimpleDatasetLoader
-#from algorithms import MiniVGGNet
-from algorithms import ShallowNet
+from algorithms import MiniVGGNet
 from keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.optimizers import SGD
 #from keras.optimizers import SGD
@@ -20,6 +22,8 @@ import os
 ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--dataset", required=True, 
 help="path to input dataset")
+ap.add_argument("-m", "--model", required=True, 
+help="path to output trained model")
 args = vars(ap.parse_args())
 
 # Grab the list of images that will be described, then extract the class
@@ -28,6 +32,7 @@ print("[INFO] Loading images...")
 imagePaths = list(paths.list_images(args["dataset"]))
 classNames = [pt.split(os.path.sep)[-2] for pt in imagePaths]
 classNames = [str(x) for x in np.unique(classNames)]
+print("Labels: {}".format(classNames))
 
 # Initialize the image preprocessors
 aap = AspectAwarePreprocessor(64, 64)
@@ -36,14 +41,16 @@ iap = ImageToArrayPreprocessor()
 # Load the dataset from disk then scale the raw pixel intensities to
 # the range [0, 1] instead of [0, 255]
 sdl = SimpleDatasetLoader(preprocessors=[aap, iap])
-(data, labels) = sdl.load(imagePaths, verbose=500)
+(data, labels) = sdl.load(imagePaths, verbose=200)
 data = data.astype("float") / 255.0
+#print("[INFO] Number of images in dataset: {}".format(len(labels)))
 
 # Partition the data into training and testing splits using 75% of the 
 # data for training and the remaining 25% for testing
 (trainX, testX, trainY, testY) = train_test_split(data, labels, 
 test_size=0.25, random_state=42)
 
+#print("Length of trainX; {}".format(len(trainX)))
 # Convert the labels from integers to vectors
 trainY = LabelBinarizer().fit_transform(trainY)
 testY = LabelBinarizer().fit_transform(testY)
@@ -58,32 +65,42 @@ horizontal_flip=True, fill_mode="nearest")
 # initialize the optimizer and model
 print("[INFO] compiling model...")
 opt = SGD(lr=0.05)
-model = ShallowNet.build(width=64, height=64, depth=3,
+model = MiniVGGNet.build(width=64, height=64, depth=3,
 	classes=len(classNames))
-model.compile(loss="sparse_categorical_crossentropy", optimizer=opt,
+model.compile(loss="categorical_crossentropy", optimizer=opt,
 	metrics=["accuracy"])
 
-# train the network over 100 epochs
+# train the network over 40 epochs with data augmentation
 print("[INFO] training network...")
 H = model.fit_generator(aug.flow(trainX, trainY, batch_size=32),
 	validation_data=(testX, testY), steps_per_epoch=len(trainX) // 32,
-	epochs=100, verbose=1)
+	epochs=35, verbose=1)	
 	
+# train the network without data augmentation	
+# H = model.fit(trainX, trainY, validation_data=(testX, testY),
+	# batch_size=32, epochs=30, verbose=1)
+	
+# Save the network to disk according to the user-specified name
+print("[INFO] serializing network...")
+model.save(args["model"])
+
 # Evaluate the CNN's overall performance
 print("[INFO] Evaluating the network...")
 predictions = model.predict(testX, batch_size=32)
 print(classification_report(testY.argmax(axis=1), 
-predictions.argmax(axis=1), target_names=classNames))
-
-# Plot the training loss and accuracy
+	predictions.argmax(axis=1), target_names=classNames))
+	
+# Plot the training and validation loss and accuracy
 plt.style.use("ggplot")
 plt.figure()
-plt.plot(np.arange(0, 100), H.history["loss"], label="train_loss")
-plt.plot(np.arange(0, 100), H.history["val_loss"], label="val_loss")
-#plt.plot(np.arange(0, 100), H.history["accuracy"], label="train_acc")
-#plt.plot(np.arange(0, 100), H.history["val_accuracy"], label="val_acc")
+plt.plot(np.arange(0, 35), H.history["loss"], label="training_loss")
+plt.plot(np.arange(0, 35), H.history["val_loss"], label="validation_loss")
+plt.plot(np.arange(0, 35), H.history["acc"], label="training_accuracy")
+plt.plot(np.arange(0, 35), H.history["val_acc"], label="validation_accuracy")
 plt.title("Training Loss and Accuracy")
 plt.xlabel("Epoch #")
-plt.ylabel("Loss/Accuracy")
+plt.ylabel("Loss/Accuracy [percentage]")
 plt.legend()
 plt.show()
+# Save the plot as a JPG
+#plt.save("cnn_training_40_epochs.jpg")

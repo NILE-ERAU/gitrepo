@@ -124,6 +124,17 @@ segmented = cv2.bitwise_and(resized, resized, mask = masked)
 
 # Display and print final results
 cv2.imshow("Contours", result)
+<<<<<<< HEAD
+cv2.imshow("Color masked", masked)
+#cv2.imshow("Segmented Image", segmented)
+#cv2.imshow("Original Resized", resized)
+print("Number of plants found: {}".format(len(contours)))
+print("Plant locations: {}".format(centroids))
+print("Classifications: {}".format(classifications))	
+# cv2.imwrite("detected_contours.jpeg", result)
+# cv2.imwrite("mask.jpeg", masked)
+cv2.imwrite("segmented_green.jpeg", segmented)
+=======
 cv2.imshow("Color masked", segmented)
 #cv2.imshow("Segmented Image", segmented)
 #cv2.imshow("Original Resized", resized)
@@ -133,6 +144,7 @@ cv2.imshow("Color masked", segmented)
 # cv2.imwrite("detected_contours.jpeg", result)
 # cv2.imwrite("mask.jpeg", masked)
 #cv2.imwrite("segmented_green.jpeg", segmented)
+>>>>>>> d8810701eee364886d1997ac885578a2fb615ab7
 cv2.waitKey(0)
 
 # # Display the contour-bound image segments

@@ -89,6 +89,7 @@ moist = 0
 
 print("ROS Subroutine")
 # Run subprocess to open a new terminal and invoke the script 'ros_start' for initiating roscore and a serial node
+<<<<<<< HEAD
 time.sleep(2)
 #subprocess.call(["python3", "/home/pyimagesearch/gitrepo/Main_Control/ros_start.py"])
 #subprocess.call(["lxterm", "-e","/usr/bin/python3", "/home/pyimagesearch/gitrepo/Main_Control/ros_start.py"])
@@ -96,6 +97,14 @@ time.sleep(2)
 subprocess.call(["gnome-terminal", "--","python3", "/home/pyimagesearch/gitrepo/Main_Control/ros_start.py"])
 time.sleep(2)
 print("SQL IP")
+=======
+subprocess.call(["gnome-terminal", "--","python3", "ros_start.py"])
+
+<<<<<<< HEAD
+=======
+
+>>>>>>> 6f96d9d4c97d6077644bf26b61a444a97e12add5
+>>>>>>> 6b315caafc4cedf9cb1c42fb1267f5858b178aa9
 sql.assign_ip()
 time.sleep(8)
 
